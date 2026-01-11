@@ -150,9 +150,11 @@ const server = Bun.serve<WebSocketData>({
       // Verify session and create agent session asynchronously
       void (async () => {
         try {
-          // Verify the auth session
+          // Verify the auth session (allow bypass in development)
           const session = await verifySession(data.authSessionId)
-          if (!session) {
+          const isDev = process.env.NODE_ENV !== 'production'
+
+          if (!session && !isDev) {
             console.log('[WS] Invalid session, closing connection')
             ws.send(
               JSON.stringify({ type: 'error', error: 'Invalid session' })
@@ -161,7 +163,12 @@ const server = Bun.serve<WebSocketData>({
             return
           }
 
-          data.userId = session.userId
+          // Use session userId if available, otherwise use 'dev-user'
+          data.userId = session?.userId || 'dev-user'
+
+          if (!session && isDev) {
+            console.log('[WS] Development mode: allowing unauthenticated connection')
+          }
           const workingDirectory = resolvePath(data.workingDirectory)
 
           // Get project context
@@ -183,7 +190,7 @@ const server = Bun.serve<WebSocketData>({
           data.sessionId = sessionId
 
           console.log(
-            `[WS] Session verified, agent session ${sessionId} created for user ${session.userId}`
+            `[WS] Session verified, agent session ${sessionId} created for user ${data.userId}`
           )
 
           // Send connected message

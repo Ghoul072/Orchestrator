@@ -308,12 +308,8 @@ export function useAgent(options: UseAgentOptions = {}): UseAgentReturn {
       return
     }
 
-    const sessionId = getAuthSession()
-    if (!sessionId) {
-      setStatus('error')
-      options.onError?.('Not authenticated. Please log in first.')
-      return
-    }
+    // Use auth session if available, otherwise use 'dev' placeholder for development
+    const sessionId = getAuthSession() || 'dev'
 
     setStatus('connecting')
 

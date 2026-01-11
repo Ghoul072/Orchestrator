@@ -1,12 +1,63 @@
-import { useQuery } from '@tanstack/react-query'
+import { useState } from 'react'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { FolderKanban } from 'lucide-react'
 import { ProjectCard } from './project-card'
 import { CreateProjectDialog } from './create-project-dialog'
 import { Skeleton } from '~/components/ui/skeleton'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '~/components/ui/alert-dialog'
 import { projectsQueryOptions } from '~/queries/projects'
+import { updateProject, deleteProject } from '~/server/functions/projects'
+import type { Project } from '~/server/db/schema'
 
 export function ProjectsList() {
+  const queryClient = useQueryClient()
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [projectToDelete, setProjectToDelete] = useState<Project | null>(null)
+
   const { data: projects, isLoading, error } = useQuery(projectsQueryOptions())
+
+  const archiveMutation = useMutation({
+    mutationFn: (project: Project) =>
+      updateProject({
+        data: { id: project.id, isArchived: !project.isArchived },
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['projects'] })
+    },
+  })
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => deleteProject({ data: { id } }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['projects'] })
+      setDeleteDialogOpen(false)
+      setProjectToDelete(null)
+    },
+  })
+
+  const handleArchive = (project: Project) => {
+    archiveMutation.mutate(project)
+  }
+
+  const handleDelete = (project: Project) => {
+    setProjectToDelete(project)
+    setDeleteDialogOpen(true)
+  }
+
+  const confirmDelete = () => {
+    if (projectToDelete) {
+      deleteMutation.mutate(projectToDelete.id)
+    }
+  }
 
   if (isLoading) {
     return (
@@ -45,10 +96,39 @@ export function ProjectsList() {
   }
 
   return (
-    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-      {projects.map((project) => (
-        <ProjectCard key={project.id} project={project} />
-      ))}
-    </div>
+    <>
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {projects.map((project) => (
+          <ProjectCard
+            key={project.id}
+            project={project}
+            onArchive={handleArchive}
+            onDelete={handleDelete}
+          />
+        ))}
+      </div>
+
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Project</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete "{projectToDelete?.name}"? This action
+              cannot be undone and will delete all associated tasks, meetings, and
+              documents.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmDelete}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleteMutation.isPending ? 'Deleting...' : 'Delete'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   )
 }

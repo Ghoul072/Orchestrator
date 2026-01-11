@@ -99,7 +99,9 @@ export function AppLayout() {
 
           {/* Main content */}
           <main className="flex-1 overflow-auto p-6">
-            <Outlet />
+            <div className="mx-auto max-w-6xl">
+              <Outlet />
+            </div>
           </main>
         </div>
       </div>

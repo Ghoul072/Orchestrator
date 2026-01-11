@@ -1,7 +1,7 @@
 import { agentManager } from './acp/agent-manager'
 import { verifySession } from './auth/session'
 import { db } from './db'
-import { projects } from './db/schema'
+import { projects, taskUpdates } from './db/schema'
 import { eq } from 'drizzle-orm'
 
 const WS_PORT = Number(process.env.WS_PORT) || 3001
@@ -263,6 +263,13 @@ const server = Bun.serve<WebSocketData>({
 
             // Fire and forget - stream responses to client
             ;(async () => {
+              // Get task ID from agent session for saving updates
+              const agentSession = agentManager.getSession(sessionId)
+              const taskId = agentSession?.taskId || data.taskId
+
+              // Accumulate assistant content for task update
+              let accumulatedContent = ''
+
               try {
                 for await (const response of agentManager.getOutputStream(
                   sessionId
@@ -271,6 +278,32 @@ const server = Bun.serve<WebSocketData>({
                     ws.send(JSON.stringify(response))
                   } else {
                     break
+                  }
+
+                  // Accumulate assistant messages
+                  if (response.type === 'assistant_message' && response.content) {
+                    accumulatedContent += response.content
+                  }
+
+                  // Save task update when agent completes
+                  if (response.type === 'result' && taskId && accumulatedContent.trim()) {
+                    try {
+                      await db.insert(taskUpdates).values({
+                        taskId,
+                        content: accumulatedContent.trim(),
+                        updateType: response.success ? 'progress' : 'blocker',
+                        author: 'Agent',
+                        metadata: {
+                          cost: response.cost,
+                          duration: response.duration,
+                          success: response.success,
+                        } as Record<string, unknown> as Record<string, object>,
+                      })
+                      console.log(`[WS] Saved agent response as task update for task ${taskId}`)
+                    } catch (updateError) {
+                      console.error('[WS] Failed to save task update:', updateError)
+                    }
+                    accumulatedContent = ''
                   }
                 }
               } catch (error) {

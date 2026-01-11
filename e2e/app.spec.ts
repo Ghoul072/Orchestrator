@@ -133,6 +133,6 @@ test.describe('Orchestrator App', () => {
     await page.waitForLoadState('networkidle')
 
     // Should see Documents heading
-    await expect(page.getByRole('heading', { name: /documents/i })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Documents', exact: true })).toBeVisible()
   })
 })

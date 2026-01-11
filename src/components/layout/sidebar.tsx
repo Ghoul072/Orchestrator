@@ -162,29 +162,20 @@ export function Sidebar({ collapsed = false }: SidebarProps) {
 
         {/* Bottom Section */}
         <div className="border-t p-3">
-          {collapsed ? (
-            <CreateProjectDialog
-              trigger={
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button variant="outline" size="icon" className="w-full">
-                      <Plus className="h-5 w-5" />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent side="right">New Project</TooltipContent>
-                </Tooltip>
-              }
-            />
-          ) : (
-            <CreateProjectDialog
-              trigger={
+          <CreateProjectDialog
+            trigger={
+              collapsed ? (
+                <Button variant="outline" size="icon" className="w-full" title="New Project">
+                  <Plus className="h-5 w-5" />
+                </Button>
+              ) : (
                 <Button variant="outline" className="w-full justify-start gap-2">
                   <Plus className="h-5 w-5" />
                   New Project
                 </Button>
-              }
-            />
-          )}
+              )
+            }
+          />
         </div>
       </div>
     </TooltipProvider>

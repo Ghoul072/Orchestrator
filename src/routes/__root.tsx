@@ -6,7 +6,6 @@ import {
   Scripts,
   createRootRouteWithContext,
 } from '@tanstack/react-router'
-import { TanStackRouterDevtoolsPanel } from '@tanstack/react-router-devtools'
 
 import appCss from '~/styles.css?url'
 
@@ -73,7 +72,6 @@ function RootDocument({ children }: { children: React.ReactNode }) {
       </head>
       <body className="min-h-screen bg-background font-sans antialiased">
         {children}
-        {process.env.NODE_ENV === 'development' && <TanStackRouterDevtoolsPanel />}
         <Scripts />
       </body>
     </html>

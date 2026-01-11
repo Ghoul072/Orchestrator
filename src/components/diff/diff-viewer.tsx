@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { Button } from '~/components/ui/button'
 import { Badge } from '~/components/ui/badge'
 import { ScrollArea } from '~/components/ui/scroll-area'
@@ -9,12 +9,15 @@ import {
   MinusIcon,
 } from '@phosphor-icons/react'
 import { cn } from '~/lib/utils'
+import { useHighlighter, getLanguageFromPath, type HighlightedLine } from '~/lib/use-highlighter'
+import type { BundledLanguage } from 'shiki'
 
 interface DiffLine {
   type: 'context' | 'add' | 'remove' | 'header'
   content: string
   oldLineNumber?: number
   newLineNumber?: number
+  highlighted?: HighlightedLine
 }
 
 interface DiffViewerProps {
@@ -35,8 +38,35 @@ export function DiffViewer({
   className,
 }: DiffViewerProps) {
   const [mode, setMode] = useState<'unified' | 'split'>(viewMode)
+  const { highlightLine, isLoading: highlighterLoading } = useHighlighter()
 
-  const lines = parseDiff(diff)
+  // Detect language from filename if not provided
+  const detectedLanguage = useMemo(() => {
+    if (language) return language as BundledLanguage
+    if (fileName) return getLanguageFromPath(fileName)
+    return null
+  }, [language, fileName])
+
+  // Parse and highlight diff lines
+  const lines = useMemo(() => {
+    const parsed = parseDiff(diff)
+
+    // Skip highlighting if highlighter is loading
+    if (highlighterLoading || !detectedLanguage) {
+      return parsed
+    }
+
+    // Add syntax highlighting to each line
+    return parsed.map((line) => {
+      if (line.type === 'header') {
+        return line
+      }
+      return {
+        ...line,
+        highlighted: highlightLine(line.content, detectedLanguage, 'github-dark'),
+      }
+    })
+  }, [diff, highlighterLoading, detectedLanguage, highlightLine])
 
   const handleModeChange = (newMode: 'unified' | 'split') => {
     setMode(newMode)
@@ -120,13 +150,35 @@ function UnifiedView({ lines }: { lines: DiffLine[] }) {
             )}
           </div>
 
-          {/* Content */}
+          {/* Content with syntax highlighting */}
           <pre className="flex-1 whitespace-pre-wrap break-all px-2 py-0.5">
-            {line.content}
+            <HighlightedContent line={line} />
           </pre>
         </div>
       ))}
     </div>
+  )
+}
+
+function HighlightedContent({ line }: { line: DiffLine }) {
+  if (!line.highlighted || line.highlighted.tokens.length === 0) {
+    return <>{line.content}</>
+  }
+
+  return (
+    <>
+      {line.highlighted.tokens.map((token, i) => (
+        <span
+          key={i}
+          style={{
+            color: token.color,
+            fontStyle: token.fontStyle,
+          }}
+        >
+          {token.content}
+        </span>
+      ))}
+    </>
   )
 }
 
@@ -150,7 +202,7 @@ function SplitView({ lines }: { lines: DiffLine[] }) {
               {line?.oldLineNumber ?? ''}
             </span>
             <pre className="flex-1 whitespace-pre-wrap break-all px-2 py-0.5">
-              {line?.content ?? ''}
+              {line ? <HighlightedContent line={line} /> : ''}
             </pre>
           </div>
         ))}
@@ -171,7 +223,7 @@ function SplitView({ lines }: { lines: DiffLine[] }) {
               {line?.newLineNumber ?? ''}
             </span>
             <pre className="flex-1 whitespace-pre-wrap break-all px-2 py-0.5">
-              {line?.content ?? ''}
+              {line ? <HighlightedContent line={line} /> : ''}
             </pre>
           </div>
         ))}

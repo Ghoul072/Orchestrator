@@ -586,10 +586,12 @@ Selected text with annotation:
 - Chat messages: Slide in from bottom
 
 ## Typography
-- Font: Inter (body) + JetBrains Mono (code)
-- Headings: Semi-bold
-- Body: Regular
-- Code: Mono with slightly smaller size
+- **Body font**: Inter Variable (via `@fontsource-variable/inter`)
+- **Code/Mono font**: JetBrains Mono (via `@fontsource/jetbrains-mono`)
+- Headings: Semi-bold Inter
+- Body: Regular Inter (400)
+- Code blocks, terminal output, file paths: JetBrains Mono at 90% body size
+- All code samples, inline code, and monospace content should use JetBrains Mono
 
 ## Empty States
 - No projects: "Create your first project" + button

@@ -26,6 +26,7 @@ See **UI.md** for detailed UI design notes, component specs, and layout structur
 - **Runtime**: Bun
 - **Framework**: TanStack Start (React meta-framework)
 - **UI**: shadcn/ui (Lyra style) + Tiptap editor (task descriptions, notes)
+- **Fonts**: Inter (UI), JetBrains Mono (code/monospace)
 - **Database**: PostgreSQL with Drizzle ORM
 - **Search**: pg_textsearch (BM25) for full-text search
 - **Agent**: Claude Agent SDK (`@anthropic-ai/claude-agent-sdk`)
@@ -565,30 +566,37 @@ bun test src/server/db/__tests__/projects.test.ts
 - Test files named `*.test.ts` or `*.test.tsx`
 - Fixtures and mocks in `__tests__/__fixtures__/`
 
-## Telegram Notifications
+## Telegram Notifications (Development Updates)
 
-Claude agents can send progress updates via Telegram during long-running operations.
+**Purpose**: Telegram notifications are for **Claude (the developer agent)** to send progress updates to the user during development sessions. This is NOT an in-app feature for end users.
+
+When Claude is working on building or modifying this project, it should send Telegram messages to keep the user informed of:
+- Development session start/end
+- Major milestones completed (e.g., "Database schema created", "Authentication working")
+- Errors or blockers encountered
+- Commits pushed
 
 ### Configuration
 Telegram credentials are stored in `.env` (gitignored):
 ```env
-TELEGRAM_BOT_TOKEN=<token>
-TELEGRAM_USER_ID=<user_id>
+TELEGRAM_BOT_TOKEN=8377551670:AAEC7GbOfLggV_zu6mjf5ZUW6Q5Gk6FCjqE
+TELEGRAM_USER_ID=1098392910
 ```
 
-### Usage
-```typescript
-import { sendTelegramMessage } from '~/lib/telegram';
-
-// Send progress update
-await sendTelegramMessage('Task completed: Setup authentication');
+### Usage (by Claude during development)
+```bash
+# Send via curl in Bash tool
+curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
+  -d "chat_id=${TELEGRAM_USER_ID}" \
+  -d "text=✅ Milestone: Database schema implemented"
 ```
 
-### Notification Events
-- Session start/end
-- Task status changes
-- Agent errors or blockers
-- Major milestones completed
+### When to Send Updates
+- Session start: "🚀 Starting work on [feature]"
+- Milestone complete: "✅ [Component] implemented and tested"
+- Commit pushed: "📝 Pushed: [commit message]"
+- Error/blocker: "⚠️ Issue: [description]"
+- Session end: "🏁 Session complete: [summary]"
 
 ## Human-Friendly Flow
 

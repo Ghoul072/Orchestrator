@@ -5,13 +5,12 @@ import { Input } from '~/components/ui/input'
 import { Badge } from '~/components/ui/badge'
 import { ScrollArea } from '~/components/ui/scroll-area'
 import {
-  List,
-  SquaresFour,
-  Plus,
-  MagnifyingGlass,
-  Funnel,
-  CaretDown,
+  ListIcon,
+  SquaresFourIcon,
+  PlusIcon,
+  MagnifyingGlassIcon,
 } from '@phosphor-icons/react'
+import { TaskFiltersPopover, ActiveFilters, type TaskFilters } from './task-filters'
 import { cn } from '~/lib/utils'
 
 type TaskStatus = 'pending' | 'in_progress' | 'blocked' | 'completed' | 'cancelled'
@@ -61,6 +60,19 @@ export function TaskBoard({
   const [groupBy, setGroupBy] = useState<GroupBy>('status')
   const [searchQuery, setSearchQuery] = useState('')
   const [showCompleted, setShowCompleted] = useState(false)
+  const [filters, setFilters] = useState<TaskFilters>({
+    statuses: [],
+    priorities: [],
+  })
+
+  // Get unique assignees from tasks
+  const assignees = useMemo(() => {
+    const set = new Set<string>()
+    tasks.forEach((t) => {
+      if (t.assignee) set.add(t.assignee)
+    })
+    return Array.from(set)
+  }, [tasks])
 
   // Filter tasks
   const filteredTasks = useMemo(() => {
@@ -76,8 +88,32 @@ export function TaskBoard({
         }
       }
 
-      // Filter completed
-      if (!showCompleted && task.status === 'completed') {
+      // Filter by status (if any selected)
+      if (filters.statuses.length > 0 && !filters.statuses.includes(task.status)) {
+        return false
+      }
+
+      // Filter by priority (if any selected)
+      if (filters.priorities.length > 0 && !filters.priorities.includes(task.priority)) {
+        return false
+      }
+
+      // Filter by assignee
+      if (filters.assignee && task.assignee !== filters.assignee) {
+        return false
+      }
+
+      // Filter by due date
+      if (filters.hasDueDate && !task.dueDate) {
+        return false
+      }
+
+      // Filter completed (unless status filter includes completed)
+      if (
+        !showCompleted &&
+        task.status === 'completed' &&
+        !filters.statuses.includes('completed')
+      ) {
         return false
       }
 
@@ -88,7 +124,7 @@ export function TaskBoard({
 
       return true
     })
-  }, [tasks, searchQuery, showCompleted])
+  }, [tasks, searchQuery, showCompleted, filters])
 
   // Group tasks
   const groupedTasks = useMemo(() => {
@@ -130,7 +166,7 @@ export function TaskBoard({
       <div className="flex items-center gap-4 border-b px-4 py-3">
         {/* Search */}
         <div className="relative flex-1 max-w-xs">
-          <MagnifyingGlass className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <MagnifyingGlassIcon className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             placeholder="Search tasks..."
             value={searchQuery}
@@ -140,11 +176,11 @@ export function TaskBoard({
         </div>
 
         {/* Filters */}
-        <Button variant="outline" size="sm" className="gap-2">
-          <Funnel className="h-4 w-4" />
-          Filters
-          <CaretDown className="h-3 w-3" />
-        </Button>
+        <TaskFiltersPopover
+          filters={filters}
+          onFiltersChange={setFilters}
+          assignees={assignees}
+        />
 
         {/* Group by */}
         <div className="flex items-center gap-2">
@@ -185,7 +221,7 @@ export function TaskBoard({
             className="h-8 w-8 rounded-r-none"
             onClick={() => setViewMode('list')}
           >
-            <List className="h-4 w-4" />
+            <ListIcon className="h-4 w-4" />
           </Button>
           <Button
             variant={viewMode === 'kanban' ? 'secondary' : 'ghost'}
@@ -193,7 +229,7 @@ export function TaskBoard({
             className="h-8 w-8 rounded-l-none"
             onClick={() => setViewMode('kanban')}
           >
-            <SquaresFour className="h-4 w-4" />
+            <SquaresFourIcon className="h-4 w-4" />
           </Button>
         </div>
 
@@ -208,10 +244,17 @@ export function TaskBoard({
 
         {/* Create task */}
         <Button size="sm" onClick={onCreateTask}>
-          <Plus className="mr-1 h-4 w-4" />
+          <PlusIcon className="mr-1 h-4 w-4" />
           New Task
         </Button>
       </div>
+
+      {/* Active filters */}
+      <ActiveFilters
+        filters={filters}
+        onFiltersChange={setFilters}
+        className="border-b px-4 py-2"
+      />
 
       {/* Content */}
       {viewMode === 'list' ? (

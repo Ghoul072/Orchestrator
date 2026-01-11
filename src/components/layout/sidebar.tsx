@@ -7,7 +7,6 @@ import {
   FileText,
   GitBranch,
   Bot,
-  Home,
   Plus,
 } from 'lucide-react'
 import { cn } from '~/lib/utils'
@@ -27,8 +26,7 @@ interface SidebarProps {
 }
 
 const mainNavItems = [
-  { icon: Home, label: 'Dashboard', href: '/' as const },
-  { icon: FolderKanban, label: 'Projects', href: '/projects' as const },
+  { icon: FolderKanban, label: 'Projects', href: '/' as const },
 ]
 
 export function Sidebar({ collapsed = false }: SidebarProps) {

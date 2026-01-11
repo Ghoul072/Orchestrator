@@ -138,10 +138,26 @@ const server = Bun.serve<WebSocketData>({
 
     // Health check endpoint
     if (url.pathname === '/health') {
+      const stats = agentManager.getStats()
       return new Response(
         JSON.stringify({
           status: 'ok',
-          activeSessions: agentManager.getActiveSessions().length,
+          ...stats,
+        }),
+        {
+          headers: { 'Content-Type': 'application/json' },
+        }
+      )
+    }
+
+    // Agent stats endpoint
+    if (url.pathname === '/stats') {
+      const stats = agentManager.getStats()
+      const queued = agentManager.getQueuedSessions()
+      return new Response(
+        JSON.stringify({
+          ...stats,
+          queuedSessionDetails: queued,
         }),
         {
           headers: { 'Content-Type': 'application/json' },
@@ -193,20 +209,30 @@ const server = Bun.serve<WebSocketData>({
           )
 
           // Create agent session
-          const agentSessionId = agentManager.createSession(workingDirectory, {
+          const result = agentManager.createSession(workingDirectory, {
             systemPrompt,
             projectId: data.projectId ?? undefined,
             taskId: data.taskId ?? undefined,
           })
-          data.agentSessionId = agentSessionId
 
-          console.log(
-            `[WS] Agent session ${agentSessionId} created`
-          )
-
-          // Send connected message
-          if (ws.readyState === 1) {
-            ws.send(JSON.stringify({ type: 'connected', sessionId: agentSessionId }))
+          // Handle queued or immediate start
+          if (typeof result === 'string') {
+            data.agentSessionId = result
+            console.log(`[WS] Agent session ${result} created`)
+            if (ws.readyState === 1) {
+              ws.send(JSON.stringify({ type: 'connected', sessionId: result }))
+            }
+          } else {
+            // Session was queued
+            data.agentSessionId = result.sessionId
+            console.log(`[WS] Agent session ${result.sessionId} queued at position ${result.queuePosition}`)
+            if (ws.readyState === 1) {
+              ws.send(JSON.stringify({
+                type: 'queued',
+                sessionId: result.sessionId,
+                queuePosition: result.queuePosition,
+              }))
+            }
           }
         } catch (error) {
           console.error('[WS] Error during session setup:', error)

@@ -323,19 +323,153 @@ function tryParseToolInput(json: string): unknown | null {
   }
 }
 
-// Agent manager singleton
+// Concurrency configuration
+export interface ConcurrencyConfig {
+  maxConcurrentAgents: number      // Global max
+  maxConcurrentPerProject: number  // Per project max
+  queueSize: number                // Max pending queue size
+}
+
+const DEFAULT_CONCURRENCY: ConcurrencyConfig = {
+  maxConcurrentAgents: 3,
+  maxConcurrentPerProject: 2,
+  queueSize: 10,
+}
+
+// Queued session info
+interface QueuedSession {
+  id: string
+  workingDirectory: string
+  options?: AgentSessionOptions
+  queuedAt: number
+  onStart?: (sessionId: string) => void
+  onQueueUpdate?: (position: number) => void
+}
+
+// Agent manager singleton with concurrency control
 export class AgentManager {
   private sessions = new Map<string, AgentSession>()
+  private queue: QueuedSession[] = []
+  private config: ConcurrencyConfig = DEFAULT_CONCURRENCY
 
+  // Set concurrency limits
+  setConfig(config: Partial<ConcurrencyConfig>): void {
+    this.config = { ...this.config, ...config }
+  }
+
+  // Get current config
+  getConfig(): ConcurrencyConfig {
+    return { ...this.config }
+  }
+
+  // Check if can start new session
+  canStartSession(projectId?: string): boolean {
+    // Check global limit
+    if (this.sessions.size >= this.config.maxConcurrentAgents) {
+      return false
+    }
+
+    // Check per-project limit
+    if (projectId) {
+      const projectSessions = Array.from(this.sessions.values())
+        .filter((s) => s.projectId === projectId).length
+      if (projectSessions >= this.config.maxConcurrentPerProject) {
+        return false
+      }
+    }
+
+    return true
+  }
+
+  // Get queue position for a project
+  getQueuePosition(projectId?: string): number {
+    if (!projectId) return this.queue.length
+
+    // Count sessions ahead of this project
+    return this.queue.filter((q) =>
+      q.options?.projectId === projectId
+    ).length
+  }
+
+  // Create session (may queue if at capacity)
   createSession(
     workingDirectory: string,
     options?: AgentSessionOptions
-  ): string {
+  ): string | { queued: true; queuePosition: number; sessionId: string } {
     const id = crypto.randomUUID()
-    const session = new AgentSession(id, workingDirectory, options)
-    this.sessions.set(id, session)
-    console.log(`[AgentManager] Created session ${id}`)
-    return id
+
+    // Check if can start immediately
+    if (this.canStartSession(options?.projectId)) {
+      const session = new AgentSession(id, workingDirectory, options)
+      this.sessions.set(id, session)
+      console.log(`[AgentManager] Created session ${id}`)
+      return id
+    }
+
+    // Check queue capacity
+    if (this.queue.length >= this.config.queueSize) {
+      throw new Error('Agent queue is full. Please try again later.')
+    }
+
+    // Queue the session
+    const queuedSession: QueuedSession = {
+      id,
+      workingDirectory,
+      options,
+      queuedAt: Date.now(),
+    }
+    this.queue.push(queuedSession)
+    const position = this.queue.length
+
+    console.log(`[AgentManager] Queued session ${id} at position ${position}`)
+    return { queued: true, queuePosition: position, sessionId: id }
+  }
+
+  // Start a queued session (called when slot becomes available)
+  private startNextQueued(): void {
+    while (this.queue.length > 0 && this.canStartSession()) {
+      const next = this.queue.shift()!
+
+      // Check if can start for this project
+      if (!this.canStartSession(next.options?.projectId)) {
+        // Put back and try next
+        this.queue.unshift(next)
+        break
+      }
+
+      const session = new AgentSession(next.id, next.workingDirectory, next.options)
+      this.sessions.set(next.id, session)
+      console.log(`[AgentManager] Started queued session ${next.id}`)
+
+      // Notify listeners
+      next.onStart?.(next.id)
+    }
+
+    // Update queue positions for remaining
+    this.queue.forEach((q, i) => {
+      q.onQueueUpdate?.(i + 1)
+    })
+  }
+
+  // Get queued session info
+  getQueuedSession(id: string): QueuedSession | undefined {
+    return this.queue.find((q) => q.id === id)
+  }
+
+  // Cancel a queued session
+  cancelQueuedSession(id: string): boolean {
+    const index = this.queue.findIndex((q) => q.id === id)
+    if (index >= 0) {
+      this.queue.splice(index, 1)
+      console.log(`[AgentManager] Cancelled queued session ${id}`)
+
+      // Update positions
+      this.queue.forEach((q, i) => {
+        q.onQueueUpdate?.(i + 1)
+      })
+      return true
+    }
+    return false
   }
 
   getSession(id: string): AgentSession | undefined {
@@ -364,11 +498,44 @@ export class AgentManager {
       session.close()
       this.sessions.delete(id)
       console.log(`[AgentManager] Destroyed session ${id}`)
+
+      // Start next queued session if any
+      this.startNextQueued()
     }
   }
 
   getActiveSessions(): string[] {
     return Array.from(this.sessions.keys())
+  }
+
+  getActiveSessionsByProject(projectId: string): string[] {
+    return Array.from(this.sessions.entries())
+      .filter(([_, s]) => s.projectId === projectId)
+      .map(([id]) => id)
+  }
+
+  getQueuedSessions(): Array<{ id: string; projectId?: string; queuedAt: number; position: number }> {
+    return this.queue.map((q, i) => ({
+      id: q.id,
+      projectId: q.options?.projectId,
+      queuedAt: q.queuedAt,
+      position: i + 1,
+    }))
+  }
+
+  // Get stats
+  getStats(): {
+    activeSessions: number
+    queuedSessions: number
+    maxConcurrent: number
+    maxPerProject: number
+  } {
+    return {
+      activeSessions: this.sessions.size,
+      queuedSessions: this.queue.length,
+      maxConcurrent: this.config.maxConcurrentAgents,
+      maxPerProject: this.config.maxConcurrentPerProject,
+    }
   }
 }
 

@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useCallback } from 'react'
 import { TaskCard, type TaskCardProps } from './task-card'
 import { Button } from '~/components/ui/button'
 import { Input } from '~/components/ui/input'
@@ -6,13 +6,24 @@ import { Badge } from '~/components/ui/badge'
 import { ScrollArea } from '~/components/ui/scroll-area'
 import { Skeleton } from '~/components/ui/skeleton'
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '~/components/ui/dropdown-menu'
+import {
   ListIcon,
   SquaresFourIcon,
   PlusIcon,
   MagnifyingGlassIcon,
+  DownloadIcon,
+  FileTextIcon,
+  ListChecksIcon,
 } from '@phosphor-icons/react'
 import { TaskFiltersPopover, ActiveFilters, type TaskFilters } from './task-filters'
 import { cn } from '~/lib/utils'
+import { tasksToMarkdown, downloadMarkdown } from '~/lib/export-markdown'
+import { toast } from 'sonner'
 
 type TaskStatus = 'pending' | 'in_progress' | 'blocked' | 'completed' | 'cancelled'
 type TaskPriority = 'low' | 'medium' | 'high' | 'urgent'
@@ -165,6 +176,27 @@ export function TaskBoard({
     return tasks.filter((t) => t.parentId === parentId)
   }
 
+  // Export handlers
+  const handleExportTasks = useCallback((includeDescriptions: boolean) => {
+    try {
+      // Transform tasks for export (with subtasks)
+      const exportTasks = filteredTasks.map((task) => ({
+        ...task,
+        subtasks: getSubtasks(task.id),
+      }))
+
+      const markdown = tasksToMarkdown(exportTasks, {
+        groupByStatus: groupBy === 'status',
+        includeDescriptions,
+      })
+
+      downloadMarkdown(markdown, `tasks-export-${new Date().toISOString().split('T')[0]}`)
+      toast.success('Tasks exported successfully')
+    } catch {
+      toast.error('Failed to export tasks')
+    }
+  }, [filteredTasks, groupBy])
+
   return (
     <div className={cn('flex h-full flex-col', className)}>
       {/* Toolbar */}
@@ -246,6 +278,26 @@ export function TaskBoard({
         >
           {showCompleted ? 'Hide' : 'Show'} Completed
         </Button>
+
+        {/* Export dropdown */}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" size="sm">
+              <DownloadIcon className="mr-1 h-4 w-4" />
+              Export
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={() => handleExportTasks(false)}>
+              <ListChecksIcon className="mr-2 h-4 w-4" />
+              Export as checklist
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => handleExportTasks(true)}>
+              <FileTextIcon className="mr-2 h-4 w-4" />
+              Export with descriptions
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
 
         {/* Create task */}
         <Button size="sm" onClick={onCreateTask}>

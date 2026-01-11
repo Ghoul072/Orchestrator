@@ -79,7 +79,7 @@ export async function updateRepository(
  */
 export async function updateCloneStatus(
   id: string,
-  status: 'pending' | 'cloning' | 'cloned' | 'failed',
+  status: 'pending' | 'cloning' | 'cloned' | 'analyzing' | 'ready' | 'failed' | 'cleaned',
   localPath?: string
 ): Promise<Repository | undefined> {
   const updateData: Partial<Repository> = {
@@ -87,11 +87,15 @@ export async function updateCloneStatus(
     updatedAt: new Date(),
   }
 
-  if (status === 'cloned') {
+  if (status === 'cloned' || status === 'ready') {
     updateData.lastClonedAt = new Date()
     if (localPath) {
       updateData.localPath = localPath
     }
+  }
+
+  if (status === 'cleaned') {
+    updateData.localPath = null
   }
 
   const [result] = await db

@@ -4,7 +4,12 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { PlusIcon } from '@phosphor-icons/react'
 import { repositoriesQueryOptions } from '~/queries/repositories'
 import { projectQueryOptions } from '~/queries/projects'
-import { createRepository, deleteRepository } from '~/server/functions/repos'
+import {
+  createRepository,
+  deleteRepository,
+  cloneRepository,
+  cleanupRepository,
+} from '~/server/functions/repos'
 import { RepositoryList } from '~/components/repositories/repository-list'
 import { AddRepositoryDialog } from '~/components/repositories/add-repository-dialog'
 import { Button } from '~/components/ui/button'
@@ -62,6 +67,20 @@ function RepositoriesPage() {
     },
   })
 
+  const cloneMutation = useMutation({
+    mutationFn: (id: string) => cloneRepository({ data: { id } }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['repositories', projectId] })
+    },
+  })
+
+  const cleanupMutation = useMutation({
+    mutationFn: (id: string) => cleanupRepository({ data: { id } }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['repositories', projectId] })
+    },
+  })
+
   const handleDelete = (id: string) => {
     setRepoToDelete(id)
     setDeleteDialogOpen(true)
@@ -107,12 +126,15 @@ function RepositoriesPage() {
           name: r.name,
           url: r.url,
           branch: r.branch,
-          cloneStatus: r.cloneStatus as 'pending' | 'cloning' | 'cloned' | 'failed',
+          cloneStatus: r.cloneStatus as 'pending' | 'cloning' | 'cloned' | 'analyzing' | 'ready' | 'failed' | 'cleaned',
           stack: r.stack,
           lastClonedAt: r.lastClonedAt,
         }))}
         onAddRepository={() => setAddDialogOpen(true)}
         onDeleteRepository={handleDelete}
+        onCloneRepository={(id) => cloneMutation.mutate(id)}
+        onCleanupRepository={(id) => cleanupMutation.mutate(id)}
+        isCloning={cloneMutation.isPending}
       />
       )}
 

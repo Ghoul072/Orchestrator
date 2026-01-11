@@ -10,6 +10,9 @@ import {
   WarningCircleIcon,
   SpinnerIcon,
   TrashIcon,
+  DownloadIcon,
+  BroomIcon,
+  MagnifyingGlassIcon,
 } from '@phosphor-icons/react'
 import { cn } from '~/lib/utils'
 
@@ -18,7 +21,7 @@ interface Repository {
   name: string
   url: string
   branch: string | null
-  cloneStatus: 'pending' | 'cloning' | 'cloned' | 'failed'
+  cloneStatus: 'pending' | 'cloning' | 'cloned' | 'analyzing' | 'ready' | 'failed' | 'cleaned'
   stack?: string[] | null
   lastClonedAt?: Date | string | null
 }
@@ -28,6 +31,9 @@ interface RepositoryListProps {
   onRepositoryClick?: (id: string) => void
   onAddRepository?: () => void
   onDeleteRepository?: (id: string) => void
+  onCloneRepository?: (id: string) => void
+  onCleanupRepository?: (id: string) => void
+  isCloning?: boolean
   className?: string
 }
 
@@ -47,10 +53,25 @@ const statusConfig = {
     label: 'Cloned',
     className: 'bg-green-500/10 text-green-600',
   },
+  analyzing: {
+    icon: MagnifyingGlassIcon,
+    label: 'Analyzing',
+    className: 'bg-purple-500/10 text-purple-600',
+  },
+  ready: {
+    icon: CheckCircleIcon,
+    label: 'Ready',
+    className: 'bg-green-500/10 text-green-600',
+  },
   failed: {
     icon: WarningCircleIcon,
     label: 'Failed',
     className: 'bg-red-500/10 text-red-600',
+  },
+  cleaned: {
+    icon: BroomIcon,
+    label: 'Cleaned',
+    className: 'bg-gray-500/10 text-gray-600',
   },
 }
 
@@ -59,6 +80,9 @@ export function RepositoryList({
   onRepositoryClick,
   onAddRepository,
   onDeleteRepository,
+  onCloneRepository,
+  onCleanupRepository,
+  isCloning,
   className,
 }: RepositoryListProps) {
   if (repositories.length === 0) {
@@ -87,6 +111,9 @@ export function RepositoryList({
           repository={repo}
           onClick={() => onRepositoryClick?.(repo.id)}
           onDelete={() => onDeleteRepository?.(repo.id)}
+          onClone={() => onCloneRepository?.(repo.id)}
+          onCleanup={() => onCleanupRepository?.(repo.id)}
+          isCloning={isCloning}
         />
       ))}
     </div>
@@ -97,13 +124,22 @@ function RepositoryCard({
   repository,
   onClick,
   onDelete,
+  onClone,
+  onCleanup,
+  isCloning,
 }: {
   repository: Repository
   onClick?: () => void
   onDelete?: () => void
+  onClone?: () => void
+  onCleanup?: () => void
+  isCloning?: boolean
 }) {
   const status = statusConfig[repository.cloneStatus]
   const StatusIcon = status.icon
+  const isProcessing = repository.cloneStatus === 'cloning' || repository.cloneStatus === 'analyzing'
+  const canClone = ['pending', 'failed', 'cleaned'].includes(repository.cloneStatus)
+  const canCleanup = ['ready', 'cloned'].includes(repository.cloneStatus)
 
   return (
     <Card className="transition-all hover:shadow-md">
@@ -135,10 +171,37 @@ function RepositoryCard({
           <div className="flex items-center gap-2">
             <Badge className={cn('gap-1', status.className)}>
               <StatusIcon
-                className={cn('h-3 w-3', repository.cloneStatus === 'cloning' && 'animate-spin')}
+                className={cn('h-3 w-3', isProcessing && 'animate-spin')}
               />
               {status.label}
             </Badge>
+            {canClone && onClone && (
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={isCloning}
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onClone()
+                }}
+              >
+                <DownloadIcon className="mr-1 h-4 w-4" />
+                Clone
+              </Button>
+            )}
+            {canCleanup && onCleanup && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onCleanup()
+                }}
+              >
+                <BroomIcon className="mr-1 h-4 w-4" />
+                Cleanup
+              </Button>
+            )}
             {onDelete && (
               <Button
                 variant="ghost"

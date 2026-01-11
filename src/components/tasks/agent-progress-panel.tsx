@@ -18,16 +18,23 @@ import {
   Clock,
   Terminal,
   Warning,
+  Lightning,
 } from '@phosphor-icons/react'
 import { cn } from '~/lib/utils'
 import {
   getSession,
   getActiveSessionByTask,
   updateSessionStatus,
+  approvePlan,
+  requestPlanChanges,
+  rejectPlan,
 } from '~/server/functions/agent-sessions'
+import { PlanReviewDialog } from './plan-review-dialog'
+import type { ExecutionPlan } from '~/server/db/schema'
 
 interface AgentProgressPanelProps {
   taskId: string
+  taskTitle?: string
   sessionId?: string
   onSessionEnd?: () => void
   className?: string
@@ -68,6 +75,7 @@ const WS_URL = typeof window !== 'undefined'
 
 export function AgentProgressPanel({
   taskId,
+  taskTitle = 'Task',
   sessionId: providedSessionId,
   onSessionEnd,
   className,
@@ -80,6 +88,7 @@ export function AgentProgressPanel({
   const [steps, setSteps] = useState<Step[]>([])
   const [currentToolCalls, setCurrentToolCalls] = useState<ToolCall[]>([])
   const [isProcessing, setIsProcessing] = useState(false)
+  const [planDialogOpen, setPlanDialogOpen] = useState(false)
 
   // Get active session for this task
   const { data: activeSession } = useQuery({
@@ -112,6 +121,53 @@ export function AgentProgressPanel({
     },
     onError: (error) => {
       toast.error('Failed to stop agent', {
+        description: error instanceof Error ? error.message : 'Unknown error',
+      })
+    },
+  })
+
+  // Plan approval mutation
+  const approvePlanMutation = useMutation({
+    mutationFn: () => approvePlan({ data: { sessionId: sessionId! } }),
+    onSuccess: () => {
+      toast.success('Plan approved - execution starting')
+      setPlanDialogOpen(false)
+      void queryClient.invalidateQueries({ queryKey: ['agent-session'] })
+    },
+    onError: (error) => {
+      toast.error('Failed to approve plan', {
+        description: error instanceof Error ? error.message : 'Unknown error',
+      })
+    },
+  })
+
+  // Plan rejection mutation
+  const rejectPlanMutation = useMutation({
+    mutationFn: () => rejectPlan({ data: { sessionId: sessionId! } }),
+    onSuccess: () => {
+      toast.info('Plan rejected - session cancelled')
+      setPlanDialogOpen(false)
+      void queryClient.invalidateQueries({ queryKey: ['agent-session'] })
+      onSessionEnd?.()
+    },
+    onError: (error) => {
+      toast.error('Failed to reject plan', {
+        description: error instanceof Error ? error.message : 'Unknown error',
+      })
+    },
+  })
+
+  // Request plan changes mutation
+  const requestChangesMutation = useMutation({
+    mutationFn: (feedback: string) =>
+      requestPlanChanges({ data: { sessionId: sessionId!, feedback } }),
+    onSuccess: () => {
+      toast.success('Feedback submitted - agent will revise plan')
+      setPlanDialogOpen(false)
+      void queryClient.invalidateQueries({ queryKey: ['agent-session'] })
+    },
+    onError: (error) => {
+      toast.error('Failed to submit feedback', {
         description: error instanceof Error ? error.message : 'Unknown error',
       })
     },
@@ -252,11 +308,19 @@ export function AgentProgressPanel({
     }
   }, [sessionId, session?.status, wsStatus, connectWs])
 
+  // Auto-open plan dialog when awaiting approval
+  useEffect(() => {
+    if (session?.status === 'awaiting_approval' && session.plan && !planDialogOpen) {
+      setPlanDialogOpen(true)
+    }
+  }, [session?.status, session?.plan, planDialogOpen])
+
   if (!sessionId && !activeSession) {
     return null
   }
 
   const status = session?.status as SessionStatus | undefined
+  const hasPlan = !!session?.plan
 
   return (
     <Card className={cn('flex flex-col', className)}>
@@ -290,6 +354,18 @@ export function AgentProgressPanel({
             >
               <Play weight="fill" className="mr-1 h-3 w-3" />
               Resume
+            </Button>
+          )}
+
+          {status === 'awaiting_approval' && hasPlan && (
+            <Button
+              size="sm"
+              variant="default"
+              onClick={() => setPlanDialogOpen(true)}
+              className="h-7"
+            >
+              <Lightning weight="fill" className="mr-1 h-3 w-3" />
+              Review Plan
             </Button>
           )}
         </div>
@@ -346,6 +422,19 @@ export function AgentProgressPanel({
           </div>
         </ScrollArea>
       </CardContent>
+
+      {/* Plan Review Dialog */}
+      {session?.plan && (
+        <PlanReviewDialog
+          open={planDialogOpen}
+          onOpenChange={setPlanDialogOpen}
+          taskTitle={taskTitle}
+          plan={session.plan as ExecutionPlan}
+          onApprove={() => approvePlanMutation.mutate()}
+          onReject={() => rejectPlanMutation.mutate()}
+          onRequestChanges={(feedback) => requestChangesMutation.mutate(feedback)}
+        />
+      )}
     </Card>
   )
 }

@@ -1,6 +1,6 @@
-import { eq, desc, and } from 'drizzle-orm'
+import { eq, desc, and, inArray } from 'drizzle-orm'
 import { db } from '~/server/db'
-import { agentSessions, type NewAgentSession, type AgentSession } from '~/server/db/schema'
+import { agentSessions, type NewAgentSession, type AgentSession, type ExecutionPlan } from '~/server/db/schema'
 
 // =============================================================================
 // QUERY FUNCTIONS
@@ -18,16 +18,22 @@ export async function getSessionsByTask(taskId: string): Promise<AgentSession[]>
 }
 
 /**
- * Get active sessions for a task
+ * Get active sessions for a task (includes queued, planning, awaiting_approval, executing)
  */
 export async function getActiveSessionByTask(taskId: string): Promise<AgentSession | undefined> {
+  const activeStatuses: AgentSession['status'][] = [
+    'queued',
+    'planning',
+    'awaiting_approval',
+    'executing',
+  ]
   const [result] = await db
     .select()
     .from(agentSessions)
     .where(
       and(
         eq(agentSessions.taskId, taskId),
-        eq(agentSessions.status, 'executing')
+        inArray(agentSessions.status, activeStatuses)
       )
     )
     .orderBy(desc(agentSessions.createdAt))
@@ -51,10 +57,16 @@ export async function getSessionById(id: string): Promise<AgentSession | undefin
  * Get all active sessions
  */
 export async function getActiveSessions(): Promise<AgentSession[]> {
+  const activeStatuses: AgentSession['status'][] = [
+    'queued',
+    'planning',
+    'awaiting_approval',
+    'executing',
+  ]
   return db
     .select()
     .from(agentSessions)
-    .where(eq(agentSessions.status, 'executing'))
+    .where(inArray(agentSessions.status, activeStatuses))
     .orderBy(desc(agentSessions.createdAt))
 }
 
@@ -138,4 +150,48 @@ export async function incrementTurn(id: string): Promise<AgentSession | undefine
 export async function deleteSession(id: string): Promise<boolean> {
   const result = await db.delete(agentSessions).where(eq(agentSessions.id, id)).returning()
   return result.length > 0
+}
+
+// =============================================================================
+// PLAN FUNCTIONS
+// =============================================================================
+
+/**
+ * Save an execution plan to a session
+ */
+export async function savePlan(
+  id: string,
+  plan: ExecutionPlan
+): Promise<AgentSession | undefined> {
+  return updateSession(id, {
+    plan,
+    status: 'awaiting_approval',
+    planRequestedChanges: null,
+  })
+}
+
+/**
+ * Request changes to a plan
+ */
+export async function requestPlanChanges(
+  id: string,
+  feedback: string
+): Promise<AgentSession | undefined> {
+  return updateSession(id, {
+    planRequestedChanges: feedback,
+    status: 'planning',
+  })
+}
+
+/**
+ * Update current step being executed
+ */
+export async function updateCurrentStep(
+  id: string,
+  stepId: string
+): Promise<AgentSession | undefined> {
+  return updateSession(id, {
+    currentStepId: stepId,
+    lastHeartbeat: new Date(),
+  })
 }

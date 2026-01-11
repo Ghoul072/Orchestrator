@@ -430,6 +430,24 @@ export const collectionItems = pgTable(
   })
 )
 
+// Plan step type for agent execution plans
+export interface PlanStep {
+  id: string
+  title: string
+  details: string
+  outputs?: string[]
+}
+
+// Full execution plan type
+export interface ExecutionPlan {
+  summary: string
+  steps: PlanStep[]
+  files: Array<{ path: string; action: 'create' | 'modify' | 'delete' }>
+  risks?: string[]
+  assumptions?: string[]
+  openQuestions?: string[]
+}
+
 // Agent Sessions
 export const agentSessions = pgTable(
   'agent_sessions',
@@ -437,8 +455,11 @@ export const agentSessions = pgTable(
     id: uuid('id').primaryKey().defaultRandom(),
     taskId: uuid('task_id').references(() => tasks.id, { onDelete: 'set null' }),
     status: agentSessionStatusEnum('status').default('queued').notNull(),
+    plan: jsonb('plan').$type<ExecutionPlan>(),
+    planRequestedChanges: text('plan_requested_changes'),
     maxTurns: integer('max_turns').default(50).notNull(),
     currentTurn: integer('current_turn').default(0).notNull(),
+    currentStepId: varchar('current_step_id', { length: 10 }),
     errorMessage: text('error_message'),
     startedAt: timestamp('started_at', { withTimezone: true }),
     lastHeartbeat: timestamp('last_heartbeat', { withTimezone: true }),

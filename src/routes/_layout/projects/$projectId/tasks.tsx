@@ -232,6 +232,7 @@ function TasksPage() {
           </div>
           <AgentProgressPanel
             taskId={activeAgentTaskId}
+            taskTitle={activeAgentTask?.title}
             onSessionEnd={() => {
               queryClient.invalidateQueries({ queryKey: ['tasks'] })
             }}

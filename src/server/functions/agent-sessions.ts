@@ -220,3 +220,113 @@ export const getActiveSessions = createServerFn({ method: 'POST' })
   .handler(async () => {
     return agentSessionsDb.getActiveSessions()
   })
+
+// =============================================================================
+// PLAN MANAGEMENT
+// =============================================================================
+
+const SavePlanSchema = z.object({
+  sessionId: z.string().uuid(),
+  plan: z.object({
+    summary: z.string(),
+    steps: z.array(z.object({
+      id: z.string(),
+      title: z.string(),
+      details: z.string(),
+      outputs: z.array(z.string()).optional(),
+    })),
+    files: z.array(z.object({
+      path: z.string(),
+      action: z.enum(['create', 'modify', 'delete']),
+    })),
+    risks: z.array(z.string()).optional(),
+    assumptions: z.array(z.string()).optional(),
+    openQuestions: z.array(z.string()).optional(),
+  }),
+})
+
+const ApprovePlanSchema = z.object({
+  sessionId: z.string().uuid(),
+})
+
+const RequestPlanChangesSchema = z.object({
+  sessionId: z.string().uuid(),
+  feedback: z.string().min(1),
+})
+
+/**
+ * Save a plan to a session and update status to awaiting_approval
+ */
+export const savePlan = createServerFn({ method: 'POST' })
+  .inputValidator(SavePlanSchema)
+  .handler(async ({ data }) => {
+    const session = await agentSessionsDb.savePlan(data.sessionId, data.plan)
+    if (!session) {
+      throw new Error('Session not found')
+    }
+    return session
+  })
+
+/**
+ * Approve a plan and start execution
+ */
+export const approvePlan = createServerFn({ method: 'POST' })
+  .inputValidator(ApprovePlanSchema)
+  .handler(async ({ data }) => {
+    const session = await agentSessionsDb.getSessionById(data.sessionId)
+    if (!session) {
+      throw new Error('Session not found')
+    }
+    if (session.status !== 'awaiting_approval') {
+      throw new Error('Session is not awaiting approval')
+    }
+    if (!session.plan) {
+      throw new Error('Session has no plan to approve')
+    }
+
+    // Update status to executing
+    const updated = await agentSessionsDb.updateSessionStatus(
+      data.sessionId,
+      'executing'
+    )
+    return updated
+  })
+
+/**
+ * Request changes to a plan
+ */
+export const requestPlanChanges = createServerFn({ method: 'POST' })
+  .inputValidator(RequestPlanChangesSchema)
+  .handler(async ({ data }) => {
+    const session = await agentSessionsDb.getSessionById(data.sessionId)
+    if (!session) {
+      throw new Error('Session not found')
+    }
+    if (session.status !== 'awaiting_approval') {
+      throw new Error('Session is not awaiting approval')
+    }
+
+    // Save feedback and set status back to planning
+    const updated = await agentSessionsDb.requestPlanChanges(
+      data.sessionId,
+      data.feedback
+    )
+    return updated
+  })
+
+/**
+ * Reject a plan and cancel the session
+ */
+export const rejectPlan = createServerFn({ method: 'POST' })
+  .inputValidator(ApprovePlanSchema)
+  .handler(async ({ data }) => {
+    const session = await agentSessionsDb.updateSessionStatus(
+      data.sessionId,
+      'failed',
+      'Plan rejected by user'
+    )
+    if (!session) {
+      throw new Error('Session not found')
+    }
+    return session
+  })

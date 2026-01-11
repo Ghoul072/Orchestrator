@@ -43,7 +43,7 @@ function TasksPage() {
         },
       }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['tasks', projectId] })
+      queryClient.invalidateQueries({ queryKey: ['tasks'] })
       setEditorOpen(false)
     },
   })
@@ -65,7 +65,7 @@ function TasksPage() {
         },
       }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['tasks', projectId] })
+      queryClient.invalidateQueries({ queryKey: ['tasks'] })
       setEditorOpen(false)
       setEditingTask(null)
     },

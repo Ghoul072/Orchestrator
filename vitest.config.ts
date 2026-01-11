@@ -13,6 +13,7 @@ export default defineConfig({
       '**/dist/**',
       '**/reference/**',
       '**/cypress/**',
+      '**/e2e/**',
       '**/.{idea,git,cache,output,temp}/**',
     ],
     alias: {

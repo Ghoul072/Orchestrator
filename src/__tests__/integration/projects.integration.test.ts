@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll, afterEach } from 'vitest'
+import { describe, it, expect, afterEach } from 'vitest'
 import { db } from '~/server/db'
 import { projects } from '~/server/db/schema'
 import { eq } from 'drizzle-orm'
@@ -41,7 +41,7 @@ describe.skipIf(skipIfNoDb)('Projects Database Integration', () => {
         name: 'Full Project',
         description: 'A test project with all fields',
         agentContext: 'You are helping with a TypeScript project',
-        metadata: { version: '1.0.0' },
+        metadata: { version: { value: '1.0.0' } },
       })
 
       createdProjectIds.push(result.id)

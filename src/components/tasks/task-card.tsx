@@ -3,6 +3,13 @@ import { Card, CardContent, CardHeader } from '~/components/ui/card'
 import { Badge } from '~/components/ui/badge'
 import { Button } from '~/components/ui/button'
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '~/components/ui/dropdown-menu'
+import {
   CheckCircle,
   Circle,
   Clock,
@@ -13,8 +20,13 @@ import {
   User,
   CaretDown,
   CaretRight,
+  Robot,
+  Pencil,
+  Trash,
+  Archive,
 } from '@phosphor-icons/react'
 import { cn } from '~/lib/utils'
+import { AssignAgentDialog } from './assign-agent-dialog'
 
 // Task status and priority types from schema
 type TaskStatus = 'pending' | 'in_progress' | 'blocked' | 'completed' | 'cancelled'
@@ -34,6 +46,10 @@ export interface TaskCardProps {
   dueDate?: Date | null
   onClick?: () => void
   onStatusChange?: (status: TaskStatus) => void
+  onEdit?: () => void
+  onDelete?: () => void
+  onArchive?: () => void
+  onAgentStarted?: (sessionId: string) => void
   className?: string
   compact?: boolean
 }
@@ -62,7 +78,7 @@ const effortLabels: Record<TaskEffort, string> = {
 }
 
 export function TaskCard({
-  id: _id,
+  id,
   title,
   description,
   status,
@@ -74,10 +90,15 @@ export function TaskCard({
   dueDate,
   onClick,
   onStatusChange,
+  onEdit,
+  onDelete,
+  onArchive,
+  onAgentStarted,
   className,
   compact = false,
 }: TaskCardProps) {
   const [expanded, setExpanded] = useState(false)
+  const [assignDialogOpen, setAssignDialogOpen] = useState(false)
 
   const handleStatusClick = (e: React.MouseEvent) => {
     e.stopPropagation()
@@ -166,17 +187,64 @@ export function TaskCard({
           )}
         </div>
 
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-6 w-6 opacity-0 group-hover:opacity-100"
-          onClick={(e) => {
-            e.stopPropagation()
-            // TODO: Open menu
-          }}
-        >
-          <DotsThree className="h-4 w-4" />
-        </Button>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-6 w-6 opacity-0 group-hover:opacity-100"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <DotsThree className="h-4 w-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem
+              onClick={(e) => {
+                e.stopPropagation()
+                setAssignDialogOpen(true)
+              }}
+            >
+              <Robot className="mr-2 h-4 w-4" />
+              Assign to Agent
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            {onEdit && (
+              <DropdownMenuItem
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onEdit()
+                }}
+              >
+                <Pencil className="mr-2 h-4 w-4" />
+                Edit
+              </DropdownMenuItem>
+            )}
+            {onArchive && (
+              <DropdownMenuItem
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onArchive()
+                }}
+              >
+                <Archive className="mr-2 h-4 w-4" />
+                Archive
+              </DropdownMenuItem>
+            )}
+            {onDelete && (
+              <DropdownMenuItem
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onDelete()
+                }}
+                className="text-destructive focus:text-destructive"
+              >
+                <Trash className="mr-2 h-4 w-4" />
+                Delete
+              </DropdownMenuItem>
+            )}
+          </DropdownMenuContent>
+        </DropdownMenu>
       </CardHeader>
 
       <CardContent className="p-4 pt-0">
@@ -256,6 +324,15 @@ export function TaskCard({
           </button>
         )}
       </CardContent>
+
+      {/* Assign Agent Dialog */}
+      <AssignAgentDialog
+        open={assignDialogOpen}
+        onOpenChange={setAssignDialogOpen}
+        taskId={id}
+        taskTitle={title}
+        onAgentStarted={onAgentStarted}
+      />
     </Card>
   )
 }

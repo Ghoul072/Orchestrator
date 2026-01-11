@@ -183,9 +183,9 @@ scripts/
 - [ ] Task filtering and search
 
 ### Phase 3: Repository Integration
-- [ ] Repository linking per project
-- [ ] Clone status tracking
-- [ ] Stack/dependency detection after clone
+- [x] Repository linking per project
+- [x] Clone status tracking
+- [x] Stack/dependency detection after clone
 - [ ] Auto-cleanup after analysis
 - [ ] Re-clone on follow-up questions
 
@@ -222,8 +222,8 @@ scripts/
 - [ ] Document linking to tasks
 
 ### Phase 8: Git Diff & Approvals
-- [ ] Git diff viewer component (side-by-side and unified)
-- [ ] File changes list with expandable diffs
+- [x] Git diff viewer component (side-by-side and unified)
+- [x] File changes list with expandable diffs
 - [ ] Syntax highlighting in diffs
 - [ ] Approval workflow for destructive agent actions
 - [ ] Approve/reject dialog with comments

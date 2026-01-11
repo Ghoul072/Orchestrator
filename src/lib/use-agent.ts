@@ -67,18 +67,6 @@ export function useAgent(options: UseAgentOptions = {}): UseAgentReturn {
   const currentAssistantIdRef = useRef<string | null>(null)
   const reconnectTimeoutRef = useRef<number | null>(null)
 
-  // Get auth session from cookie
-  const getAuthSession = useCallback((): string | null => {
-    const cookies = document.cookie.split(';')
-    for (const cookie of cookies) {
-      const [name, value] = cookie.trim().split('=')
-      if (name === 'session') {
-        return value
-      }
-    }
-    return null
-  }, [])
-
   // Append content to current assistant message
   const appendAssistantContent = useCallback((content: string) => {
     setMessages((prev) => {
@@ -308,9 +296,6 @@ export function useAgent(options: UseAgentOptions = {}): UseAgentReturn {
       return
     }
 
-    // Use auth session if available, otherwise use 'dev' placeholder for development
-    const sessionId = getAuthSession() || 'dev'
-
     setStatus('connecting')
 
     const cwd = encodeURIComponent(options.workingDirectory || '/tmp')
@@ -319,7 +304,7 @@ export function useAgent(options: UseAgentOptions = {}): UseAgentReturn {
       : ''
 
     const ws = new WebSocket(
-      `${WS_URL}?session=${encodeURIComponent(sessionId)}&cwd=${cwd}${projectParam}`
+      `${WS_URL}?cwd=${cwd}${projectParam}`
     )
 
     ws.onopen = () => {
@@ -342,7 +327,7 @@ export function useAgent(options: UseAgentOptions = {}): UseAgentReturn {
     }
 
     wsRef.current = ws
-  }, [getAuthSession, handleMessage, options])
+  }, [handleMessage, options])
 
   // Disconnect from WebSocket
   const disconnect = useCallback(() => {

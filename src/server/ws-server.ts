@@ -1,7 +1,7 @@
 import { agentManager } from './acp/agent-manager'
 import { db } from './db'
-import { projects, taskUpdates } from './db/schema'
-import { eq } from 'drizzle-orm'
+import { projects, tasks, taskUpdates } from './db/schema'
+import { eq, and, isNull } from 'drizzle-orm'
 
 const WS_PORT = Number(process.env.WS_PORT) || 3001
 
@@ -51,6 +51,33 @@ async function getProjectContext(projectId: string | null): Promise<string | nul
       context += `## Agent Instructions\n${p.agentContext}\n\n`
     }
 
+    // Fetch project tasks for context
+    const projectTasks = await db
+      .select()
+      .from(tasks)
+      .where(and(eq(tasks.projectId, projectId), isNull(tasks.parentId)))
+      .limit(50)
+
+    if (projectTasks.length > 0) {
+      context += `## Current Tasks\n\n`
+      for (const task of projectTasks) {
+        const statusEmoji =
+          task.status === 'completed' ? '✅' :
+          task.status === 'in_progress' ? '🔄' :
+          task.status === 'blocked' ? '🚫' :
+          task.status === 'cancelled' ? '❌' : '⏳'
+
+        context += `- ${statusEmoji} **${task.title}** (${task.status})\n`
+        if (task.description) {
+          context += `  ${task.description.slice(0, 200)}${task.description.length > 200 ? '...' : ''}\n`
+        }
+        if (task.acceptanceCriteria && task.acceptanceCriteria.length > 0) {
+          context += `  Acceptance criteria: ${task.acceptanceCriteria.join(', ')}\n`
+        }
+      }
+      context += '\n'
+    }
+
     return context
   } catch (error) {
     console.error('[WS] Error fetching project context:', error)
@@ -66,6 +93,22 @@ function buildSystemPrompt(
   const basePrompt = `You are an AI assistant helping with software development tasks in Orchestrator, a project management tool for Claude Code.
 
 You have access to tools for reading, writing, and searching files, as well as executing shell commands.
+
+## Your Capabilities
+
+1. **Discuss and clarify requirements** - Help users understand and refine their project requirements
+2. **Plan implementation** - Break down tasks into actionable steps with clear acceptance criteria
+3. **Analyze codebase** - Read and understand existing code to inform decisions
+4. **Suggest task updates** - Recommend changes to task descriptions, priorities, or acceptance criteria
+5. **Execute development tasks** - Write code, run tests, and make changes when asked
+
+## Guidelines
+
+- When discussing tasks, reference them by title and provide specific, actionable suggestions
+- If requirements are unclear, ask clarifying questions before suggesting implementation
+- When proposing task changes, be explicit: "I suggest updating task 'X' to include..."
+- For implementation discussions, consider existing patterns in the codebase
+- Be proactive in identifying potential issues or missing requirements
 
 Be helpful, concise, and focus on completing the user's tasks effectively.`
 

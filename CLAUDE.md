@@ -223,7 +223,7 @@ scripts/
 - [x] Kanban board view
 - [ ] Parallel agent execution
 - [ ] Git worktree management
-- [ ] Prompt library with variables
+- [x] Prompt library with variables
 - [ ] Export to markdown
 
 ## Task Schema

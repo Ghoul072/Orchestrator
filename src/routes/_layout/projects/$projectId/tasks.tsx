@@ -1,14 +1,16 @@
 import { useState } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { ListChecks } from '@phosphor-icons/react'
+import { ListChecks, X } from '@phosphor-icons/react'
 import { toast } from 'sonner'
 import { tasksQueryOptions } from '~/queries/tasks'
 import { projectQueryOptions } from '~/queries/projects'
 import { createTask, updateTask } from '~/server/functions/tasks'
 import { getGitHubStatus, pushTaskToGitHub } from '~/server/functions/github'
+import { getActiveSessions } from '~/server/functions/agent-sessions'
 import { TaskBoard, type Task } from '~/components/tasks/task-board'
 import { TaskEditor, type TaskFormData } from '~/components/tasks/task-editor'
+import { AgentProgressPanel } from '~/components/tasks/agent-progress-panel'
 import { Card, CardContent } from '~/components/ui/card'
 import { Button } from '~/components/ui/button'
 
@@ -22,8 +24,23 @@ function TasksPage() {
 
   const [editorOpen, setEditorOpen] = useState(false)
   const [editingTask, setEditingTask] = useState<Task | null>(null)
+  const [activeAgentTaskId, setActiveAgentTaskId] = useState<string | null>(null)
 
   const { data: project } = useQuery(projectQueryOptions(projectId))
+
+  // Check for active agent sessions in this project
+  const { data: activeSessions } = useQuery({
+    queryKey: ['agent-sessions', 'active'],
+    queryFn: () => getActiveSessions({}),
+    refetchInterval: 10000, // Poll every 10s
+  })
+
+  // Get task IDs that have active sessions
+  const tasksWithActiveSessions = new Set(
+    (activeSessions || [])
+      .filter((s) => ['queued', 'planning', 'executing', 'awaiting_approval'].includes(s.status))
+      .map((s) => s.taskId)
+  )
 
   const { data: tasks, isLoading } = useQuery(tasksQueryOptions({ projectId }))
 
@@ -97,19 +114,22 @@ function TasksPage() {
   })
 
   // Transform tasks to the format expected by TaskBoard
-  const boardTasks: Task[] = (tasks || []).map((task) => ({
-    id: task.id as string,
-    title: task.title as string,
-    description: task.description as string | null,
-    status: task.status as Task['status'],
-    priority: task.priority as Task['priority'],
-    effort: task.effort as Task['effort'],
-    assignee: task.assignee as string | null,
-    parentId: task.parentId as string | null,
-    dueDate: task.dueDate ? new Date(task.dueDate as unknown as string) : null,
-    githubIssueUrl: task.githubIssueUrl as string | null,
-    githubEnabled: githubStatus?.connected ?? false,
-  }))
+  const boardTasks: Task[] = (tasks || []).map((task) => {
+    const hasActiveAgent = tasksWithActiveSessions.has(task.id as string)
+    return {
+      id: task.id as string,
+      title: task.title as string,
+      description: task.description as string | null,
+      status: task.status as Task['status'],
+      priority: task.priority as Task['priority'],
+      effort: task.effort as Task['effort'],
+      assignee: hasActiveAgent ? 'Agent' : (task.assignee as string | null),
+      parentId: task.parentId as string | null,
+      dueDate: task.dueDate ? new Date(task.dueDate as unknown as string) : null,
+      githubIssueUrl: task.githubIssueUrl as string | null,
+      githubEnabled: githubStatus?.connected ?? false,
+    }
+  })
 
   const handleTaskClick = (taskId: string) => {
     const task = boardTasks.find((t) => t.id === taskId)
@@ -172,17 +192,53 @@ function TasksPage() {
     )
   }
 
+  // Find the active task's title for the panel
+  const activeAgentTask = activeAgentTaskId
+    ? boardTasks.find((t) => t.id === activeAgentTaskId)
+    : null
+
   return (
-    <div className="flex h-full flex-col">
-      <TaskBoard
-        tasks={boardTasks}
-        onTaskClick={handleTaskClick}
-        onTaskStatusChange={handleTaskStatusChange}
-        onPushToGitHub={githubStatus?.connected ? handlePushToGitHub : undefined}
-        onCreateTask={handleCreateTask}
-        className="flex-1"
-        isLoading={isLoading}
-      />
+    <div className="flex h-full">
+      {/* Main task board */}
+      <div className="flex flex-1 flex-col">
+        <TaskBoard
+          tasks={boardTasks}
+          onTaskClick={handleTaskClick}
+          onTaskStatusChange={handleTaskStatusChange}
+          onPushToGitHub={githubStatus?.connected ? handlePushToGitHub : undefined}
+          onCreateTask={handleCreateTask}
+          className="flex-1"
+          isLoading={isLoading}
+        />
+      </div>
+
+      {/* Agent progress panel (slide-out when active) */}
+      {activeAgentTaskId && (
+        <div className="w-96 border-l flex flex-col bg-background">
+          <div className="flex items-center justify-between border-b px-4 py-3">
+            <div className="min-w-0">
+              <h3 className="text-sm font-medium truncate">
+                {activeAgentTask?.title || 'Agent Task'}
+              </h3>
+            </div>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7 shrink-0"
+              onClick={() => setActiveAgentTaskId(null)}
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+          <AgentProgressPanel
+            taskId={activeAgentTaskId}
+            onSessionEnd={() => {
+              queryClient.invalidateQueries({ queryKey: ['tasks'] })
+            }}
+            className="flex-1 border-0 rounded-none"
+          />
+        </div>
+      )}
 
       <TaskEditor
         open={editorOpen}

@@ -2,7 +2,12 @@ import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { meetingQueryOptions } from '~/queries/meetings'
 import { projectQueryOptions } from '~/queries/projects'
-import { updateMeeting, deleteMeeting } from '~/server/functions/meetings'
+import {
+  updateMeeting,
+  deleteMeeting,
+  generateTasksFromMeeting,
+} from '~/server/functions/meetings'
+import { toast } from 'sonner'
 import { MeetingEditor } from '~/components/meetings/meeting-editor'
 import { Skeleton } from '~/components/ui/skeleton'
 import { Button } from '~/components/ui/button'
@@ -70,6 +75,23 @@ function MeetingDetailPage() {
     },
   })
 
+  const generateTasksMutation = useMutation({
+    mutationFn: () =>
+      generateTasksFromMeeting({ data: { meetingId, projectId } }),
+    onSuccess: (result) => {
+      queryClient.invalidateQueries({ queryKey: ['tasks'] })
+      queryClient.invalidateQueries({ queryKey: ['meeting', meetingId] })
+      toast.success(
+        `Successfully created ${result.tasksCreated} task${result.tasksCreated === 1 ? '' : 's'} from meeting notes.`
+      )
+    },
+    onError: (error) => {
+      toast.error(
+        error instanceof Error ? error.message : 'Failed to generate tasks'
+      )
+    },
+  })
+
   const handleBack = () => {
     void navigate({
       to: '/projects/$projectId/meetings' as const,
@@ -130,11 +152,8 @@ function MeetingDetailPage() {
         }}
         onSave={(data) => updateMutation.mutate(data)}
         onDelete={() => deleteMutation.mutate()}
-        onGenerateTasks={() => {
-          // TODO: Implement AI task generation
-          console.log('Generate tasks from meeting')
-        }}
-        isLoading={updateMutation.isPending || deleteMutation.isPending}
+        onGenerateTasks={() => generateTasksMutation.mutate()}
+        isLoading={updateMutation.isPending || deleteMutation.isPending || generateTasksMutation.isPending}
         className="flex-1"
       />
     </div>

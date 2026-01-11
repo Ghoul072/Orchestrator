@@ -6,6 +6,7 @@ import {
   Scripts,
   createRootRouteWithContext,
 } from '@tanstack/react-router'
+import { Toaster } from 'sonner'
 
 import appCss from '~/styles.css?url'
 
@@ -72,6 +73,7 @@ function RootDocument({ children }: { children: React.ReactNode }) {
       </head>
       <body className="min-h-screen bg-background font-sans antialiased">
         {children}
+        <Toaster position="top-right" richColors />
         <Scripts />
       </body>
     </html>

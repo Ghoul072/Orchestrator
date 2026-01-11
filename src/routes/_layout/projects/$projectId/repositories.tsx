@@ -75,7 +75,7 @@ function RepositoriesPage() {
 
   if (isLoading) {
     return (
-      <div className="container max-w-4xl py-8">
+      <div className="space-y-6">
         <div className="mb-6">
           <Skeleton className="h-8 w-48" />
         </div>
@@ -89,7 +89,7 @@ function RepositoriesPage() {
   }
 
   return (
-    <div className="container max-w-4xl py-8">
+    <div className="space-y-6">
       <div className="mb-6 flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Repositories</h1>

@@ -90,7 +90,7 @@ function DocumentsPage() {
 
   if (isLoading) {
     return (
-      <div className="container max-w-5xl py-8">
+      <div className="space-y-6">
         <div className="mb-6">
           <Skeleton className="h-8 w-48" />
         </div>
@@ -104,7 +104,7 @@ function DocumentsPage() {
   }
 
   return (
-    <div className="container max-w-5xl py-8">
+    <div className="space-y-6">
       <div className="mb-6 flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Documents</h1>

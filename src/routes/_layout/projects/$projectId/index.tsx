@@ -28,9 +28,9 @@ function ProjectDetailPage() {
 
   if (projectLoading) {
     return (
-      <div className="container max-w-6xl py-8">
-        <Skeleton className="mb-4 h-10 w-48" />
-        <Skeleton className="mb-8 h-6 w-96" />
+      <div className="space-y-6">
+        <Skeleton className="h-10 w-48" />
+        <Skeleton className="h-6 w-96" />
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {[1, 2, 3, 4].map((i) => (
             <Skeleton key={i} className="h-24" />
@@ -54,8 +54,8 @@ function ProjectDetailPage() {
   }
 
   return (
-    <div className="container max-w-6xl py-8">
-      <div className="mb-8">
+    <div className="space-y-6">
+      <div>
         <div className="flex items-center gap-3">
           <h1 className="text-3xl font-bold tracking-tight">{project.name}</h1>
           {project.isArchived && (
@@ -117,7 +117,7 @@ function ProjectDetailPage() {
       ) : null}
 
       {/* Recent Activity placeholder */}
-      <div className="mt-8">
+      <div>
         <h2 className="mb-4 text-xl font-semibold">Recent Activity</h2>
         <Card>
           <CardContent className="flex min-h-[200px] items-center justify-center">

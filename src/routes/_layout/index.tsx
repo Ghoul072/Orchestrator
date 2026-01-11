@@ -8,8 +8,8 @@ export const Route = createFileRoute('/_layout/')({
 
 function DashboardPage() {
   return (
-    <div className="mx-auto w-full max-w-6xl px-6 py-8">
-      <div className="mb-8 flex items-center justify-between">
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Projects</h1>
           <p className="text-muted-foreground">

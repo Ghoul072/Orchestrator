@@ -180,7 +180,7 @@ scripts/
 - [x] Task status workflow (pending → in_progress → completed)
 - [x] Priority and effort estimation
 - [x] Task dependencies
-- [ ] Task filtering and search
+- [x] Task filtering and search
 
 ### Phase 3: Repository Integration
 - [x] Repository linking per project
@@ -198,11 +198,11 @@ scripts/
 - [ ] Progress streaming from agents
 - [ ] Save agent responses as task updates
 
-### Phase 5: MCP Integration
+### Phase 5: MCP & ACP Integration
 - [x] MCP server exposing Orchestrator tools
-- [ ] MCP client for source-diving-agent
+- [ ] MCP client (generic, not targeting specific agent)
+- [ ] ACP (Agent Communication Protocol) for agent-to-agent
 - [ ] Query knowledge base from task context
-- [ ] 2-way communication protocol
 
 ### Phase 6: GitHub Sync
 - [ ] Push tasks as GitHub Issues
@@ -217,9 +217,9 @@ scripts/
 - [ ] "Generate Tasks" button - agent analyzes notes and creates tasks
 - [ ] "Update Tasks" button - agent compares notes to existing tasks, updates if requirements changed
 - [x] Meeting-task linking (track which tasks came from which meeting)
-- [ ] Documents/notes with Mermaid graph support
+- [x] Documents/notes with Mermaid graph support
 - [ ] File uploads for images, diagrams, attachments
-- [ ] Document linking to tasks
+- [x] Document linking to tasks
 
 ### Phase 8: Git Diff & Approvals
 - [x] Git diff viewer component (side-by-side and unified)

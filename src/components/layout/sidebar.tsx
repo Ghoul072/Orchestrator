@@ -10,9 +10,11 @@ import {
   Bot,
   Plus,
   ChevronLeft,
+  ShieldCheck,
 } from 'lucide-react'
 import { cn } from '~/lib/utils'
 import { Button } from '~/components/ui/button'
+import { Badge } from '~/components/ui/badge'
 import { ScrollArea } from '~/components/ui/scroll-area'
 import { Separator } from '~/components/ui/separator'
 import {
@@ -23,6 +25,7 @@ import {
 } from '~/components/ui/tooltip'
 import { CreateProjectDialog } from '~/components/projects/create-project-dialog'
 import { projectQueryOptions } from '~/queries/projects'
+import { pendingApprovalsCountQueryOptions } from '~/queries/approvals'
 
 interface SidebarProps {
   collapsed?: boolean
@@ -45,6 +48,10 @@ export function Sidebar({ collapsed = false }: SidebarProps) {
     ...projectQueryOptions(projectId || ''),
     enabled: !!projectId,
   })
+
+  // Fetch pending approvals count
+  const { data: pendingApprovalsData } = useQuery(pendingApprovalsCountQueryOptions())
+  const pendingApprovalsCount = pendingApprovalsData?.count ?? 0
 
   return (
     <TooltipProvider delayDuration={0}>
@@ -170,6 +177,15 @@ export function Sidebar({ collapsed = false }: SidebarProps) {
                   collapsed={collapsed}
                 />
                 <ProjectNavItem
+                  icon={ShieldCheck}
+                  label="Approvals"
+                  projectId={projectId}
+                  segment="approvals"
+                  currentPath={currentPath}
+                  collapsed={collapsed}
+                  badge={pendingApprovalsCount > 0 ? pendingApprovalsCount : undefined}
+                />
+                <ProjectNavItem
                   icon={Settings}
                   label="Settings"
                   projectId={projectId}
@@ -211,6 +227,7 @@ function ProjectNavItem({
   segment,
   currentPath,
   collapsed,
+  badge,
 }: {
   icon: React.ComponentType<{ className?: string }>
   label: string
@@ -218,6 +235,7 @@ function ProjectNavItem({
   segment: string
   currentPath: string
   collapsed: boolean
+  badge?: number
 }) {
   const href = `/projects/${projectId}/${segment}`
   const isActive =
@@ -232,13 +250,24 @@ function ProjectNavItem({
             <Button
               variant={isActive ? 'secondary' : 'ghost'}
               size="icon"
-              className="w-full"
+              className="relative w-full"
             >
               <Icon className="h-5 w-5" />
+              {badge !== undefined && badge > 0 && (
+                <Badge
+                  variant="destructive"
+                  className="absolute -right-1 -top-1 h-4 min-w-4 px-1 text-[10px]"
+                >
+                  {badge > 99 ? '99+' : badge}
+                </Badge>
+              )}
             </Button>
           </a>
         </TooltipTrigger>
-        <TooltipContent side="right">{label}</TooltipContent>
+        <TooltipContent side="right">
+          {label}
+          {badge !== undefined && badge > 0 && ` (${badge})`}
+        </TooltipContent>
       </Tooltip>
     )
   }
@@ -250,7 +279,12 @@ function ProjectNavItem({
         className="w-full justify-start gap-2"
       >
         <Icon className="h-5 w-5" />
-        {label}
+        <span className="flex-1 text-left">{label}</span>
+        {badge !== undefined && badge > 0 && (
+          <Badge variant="destructive" className="ml-auto h-5 min-w-5 px-1.5 text-xs">
+            {badge > 99 ? '99+' : badge}
+          </Badge>
+        )}
       </Button>
     </a>
   )

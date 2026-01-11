@@ -30,9 +30,10 @@ See **UI.md** for detailed UI design notes, component specs, and layout structur
 - **Database**: PostgreSQL with Drizzle ORM
 - **Search**: pg_textsearch (BM25) for full-text search
 - **Agent**: Claude Agent SDK (`@anthropic-ai/claude-agent-sdk`)
-- **Auth**: Anthropic OAuth 2.0 + PKCE (Claude Max subscription)
+- **Auth**: None required (Claude SDK handles auth via CLI)
 - **Real-time**: WebSocket bridge for agent communication
 - **MCP**: Model Context Protocol for tool integration
+- **AI Integration**: `@anthropic-ai/sdk` for task generation from meetings
 
 ## Database Schema (Drizzle ORM)
 - **projects** - Top-level containers for work
@@ -57,13 +58,6 @@ Connection: `postgres://postgres:secret@127.0.0.1:5433/orchestrator`
 
 ## Key Configuration Values
 
-### Anthropic OAuth
-- **Client ID**: `9d1c250a-e61b-44d9-88ed-5944d1962f5e`
-- **Auth URL (Max)**: `https://claude.ai/oauth/authorize`
-- **Token Endpoint**: `https://console.anthropic.com/v1/oauth/token`
-- **Redirect URI**: `https://console.anthropic.com/oauth/code/callback`
-- **Scopes**: `org:create_api_key user:profile user:inference`
-
 ### Ports
 - **Web App**: http://localhost:3000
 - **WebSocket**: ws://localhost:3001
@@ -72,7 +66,7 @@ Connection: `postgres://postgres:secret@127.0.0.1:5433/orchestrator`
 ```
 src/
 ├── components/
-│   ├── auth/           # OAuth login UI
+│   ├── approvals/      # Approval workflow UI
 │   ├── chat/           # Agent chat panel
 │   ├── layout/         # App layout with sidebar
 │   ├── projects/       # Project management
@@ -103,8 +97,8 @@ src/
 │   │   └── prompt-picker.tsx   # Grid picker for chat panel
 │   └── ui/             # shadcn components
 ├── lib/
-│   ├── auth.ts         # Client-side auth utilities
 │   ├── use-agent.ts    # React hook for agent WebSocket
+│   ├── use-task-agent.ts # Task-specific agent hook
 │   ├── task-utils.ts   # Task hierarchy utilities
 │   └── utils.ts        # Utility functions
 ├── queries/
@@ -129,10 +123,6 @@ src/
 └── server/
     ├── acp/
     │   └── agent-manager.ts    # Claude Agent SDK wrapper
-    ├── auth/
-    │   ├── anthropic-oauth.ts  # OAuth implementation
-    │   ├── auth-functions.ts   # Server functions
-    │   └── session-store.ts    # File-based session storage
     ├── db/
     │   ├── schema.ts           # Drizzle schema
     │   ├── projects.ts         # Project operations
@@ -167,10 +157,9 @@ scripts/
 
 ### Phase 1: Foundation
 - [x] TanStack Start project with shadcn/ui
-- [x] Anthropic OAuth 2.0 + PKCE authentication
-- [x] File-based session storage (shared between processes)
 - [x] Database schema with Drizzle ORM
 - [x] Basic CRUD for projects
+- [x] Playwright E2E testing setup
 
 ### Phase 2: Task Management
 - [x] Task schema with hierarchical structure (parent_id)
@@ -186,7 +175,7 @@ scripts/
 - [x] Repository linking per project
 - [x] Clone status tracking
 - [x] Stack/dependency detection after clone
-- [ ] Auto-cleanup after analysis
+- [x] Cleanup functionality
 - [ ] Re-clone on follow-up questions
 
 ### Phase 4: Agent Integration
@@ -194,9 +183,10 @@ scripts/
 - [x] WebSocket bridge for real-time communication
 - [x] Agent session management
 - [x] Tool use display in chat (collapsible steps)
-- [ ] Task assignment to agents
-- [ ] Progress streaming from agents
-- [ ] Save agent responses as task updates
+- [x] Save agent responses as task updates
+- [x] Task context in agent system prompt
+- [ ] Task assignment to agents (full workflow)
+- [ ] Progress streaming visualization
 
 ### Phase 5: MCP & ACP Integration
 - [x] MCP server exposing Orchestrator tools
@@ -214,8 +204,8 @@ scripts/
 - [x] Meeting schema (date, title, attendees, content)
 - [x] Meeting CRUD server functions
 - [x] Meeting editor with Tiptap
-- [ ] "Generate Tasks" button - agent analyzes notes and creates tasks
-- [ ] "Update Tasks" button - agent compares notes to existing tasks, updates if requirements changed
+- [x] "Generate Tasks" button - AI analyzes notes and creates tasks
+- [x] "Update Tasks" button - AI compares notes to existing tasks
 - [x] Meeting-task linking (track which tasks came from which meeting)
 - [x] Documents/notes with Mermaid graph support
 - [ ] File uploads for images, diagrams, attachments
@@ -225,9 +215,9 @@ scripts/
 - [x] Git diff viewer component (side-by-side and unified)
 - [x] File changes list with expandable diffs
 - [ ] Syntax highlighting in diffs
-- [ ] Approval workflow for destructive agent actions
-- [ ] Approve/reject dialog with comments
-- [ ] Approval history log
+- [x] Approval workflow for destructive agent actions
+- [x] Approve/reject UI with pending count badge
+- [x] Approval history (pending/resolved tabs)
 
 ### Phase 9: Advanced Features
 - [x] Kanban board view
@@ -560,19 +550,17 @@ for await (const message of outputIterator) {
 }
 ```
 
-## Session Storage
-Sessions stored in `.orchestrator/sessions.json` (file-based, shared between TanStack Start and WS server processes).
-
 ## Troubleshooting
 
 ### WebSocket Connection Issues
-1. Logout from the app
-2. Login again (creates fresh session)
-3. Connect should work
+1. Ensure WebSocket server is running (`bun run dev:ws`)
+2. Check browser console for connection errors
+3. Verify port 3001 is not blocked
 
 ### Agent Not Responding
 - Check that Claude CLI is authenticated (`claude /login`)
 - Agent uses `~/.claude.json` for auth
+- Verify WebSocket server logs for errors
 
 ### Database Errors
 1. Ensure PostgreSQL is running on port 5433
@@ -599,6 +587,17 @@ Sessions stored in `.orchestrator/sessions.json` (file-based, shared between Tan
 8. **Real-time feedback** - WebSocket for live progress updates (from Weft)
 9. **Minimal by default** - Don't add features that clutter the core workflow
 10. **Test-driven development** - Tests written and run after every feature implementation
+
+## Decision Making
+
+**Consult Codex**: When facing significant architectural decisions, design choices, or implementation trade-offs, consult with Codex (or the user) before proceeding. This includes:
+- Choosing between multiple valid approaches
+- Adding new dependencies
+- Changing data models or schemas
+- Modifying core abstractions
+- Any decision that would be difficult to reverse
+
+This ensures alignment and prevents wasted effort on approaches that don't match the project vision.
 
 ## Testing Requirements
 

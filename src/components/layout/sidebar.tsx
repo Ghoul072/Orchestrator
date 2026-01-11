@@ -20,6 +20,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '~/components/ui/tooltip'
+import { CreateProjectDialog } from '~/components/projects/create-project-dialog'
 
 interface SidebarProps {
   collapsed?: boolean
@@ -162,19 +163,27 @@ export function Sidebar({ collapsed = false }: SidebarProps) {
         {/* Bottom Section */}
         <div className="border-t p-3">
           {collapsed ? (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button variant="outline" size="icon" className="w-full">
-                  <Plus className="h-5 w-5" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent side="right">New Project</TooltipContent>
-            </Tooltip>
+            <CreateProjectDialog
+              trigger={
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button variant="outline" size="icon" className="w-full">
+                      <Plus className="h-5 w-5" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="right">New Project</TooltipContent>
+                </Tooltip>
+              }
+            />
           ) : (
-            <Button variant="outline" className="w-full justify-start gap-2">
-              <Plus className="h-5 w-5" />
-              New Project
-            </Button>
+            <CreateProjectDialog
+              trigger={
+                <Button variant="outline" className="w-full justify-start gap-2">
+                  <Plus className="h-5 w-5" />
+                  New Project
+                </Button>
+              }
+            />
           )}
         </div>
       </div>

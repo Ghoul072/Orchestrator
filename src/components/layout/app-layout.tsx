@@ -1,17 +1,28 @@
 import { Outlet } from '@tanstack/react-router'
 import { useState } from 'react'
-import { PanelLeftClose, PanelLeft } from 'lucide-react'
+import { PanelLeftClose, PanelLeft, LogIn, LogOut, User } from 'lucide-react'
 import { Sidebar } from './sidebar'
 import { Button } from '~/components/ui/button'
+import { Skeleton } from '~/components/ui/skeleton'
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
 } from '~/components/ui/tooltip'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '~/components/ui/dropdown-menu'
+import { useAuth } from '~/lib/use-auth'
 
 export function AppLayout() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
+  const { user, isAuthenticated, isLoading, isLoggingIn, isLoggingOut, login, logout } = useAuth()
 
   return (
     <TooltipProvider>
@@ -42,9 +53,47 @@ export function AppLayout() {
 
             <div className="flex-1" />
 
-            {/* User section - placeholder for auth */}
-            <div className="flex items-center gap-2">
-              <div className="h-8 w-8 rounded-full bg-muted" />
+            {/* Auth status indicator */}
+            <div className="flex items-center gap-3">
+              {isLoading ? (
+                <Skeleton className="h-8 w-24" />
+              ) : isAuthenticated && user ? (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" className="gap-2">
+                      <div className="flex h-7 w-7 items-center justify-center rounded-full bg-primary text-primary-foreground">
+                        <User className="h-4 w-4" />
+                      </div>
+                      <span className="hidden sm:inline">{user.name || user.email}</span>
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuLabel>
+                      <div className="flex flex-col">
+                        <span>{user.name || 'User'}</span>
+                        <span className="text-xs font-normal text-muted-foreground">
+                          {user.email}
+                        </span>
+                      </div>
+                    </DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={() => logout()} disabled={isLoggingOut}>
+                      <LogOut className="mr-2 h-4 w-4" />
+                      {isLoggingOut ? 'Logging out...' : 'Log out'}
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              ) : (
+                <Button
+                  variant="outline"
+                  onClick={() => login()}
+                  disabled={isLoggingIn}
+                  className="gap-2"
+                >
+                  <LogIn className="h-4 w-4" />
+                  {isLoggingIn ? 'Logging in...' : 'Log in'}
+                </Button>
+              )}
             </div>
           </header>
 

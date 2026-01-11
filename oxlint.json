@@ -1,0 +1,28 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "plugins": ["react", "react-hooks", "import", "unicorn", "promise"],
+  "rules": {
+    "no-unused-vars": "warn",
+    "unicorn/no-null": "off",
+    "unicorn/prefer-top-level-await": "off",
+    "eslint/no-deprecated": "error",
+    "typescript/no-deprecated": "error",
+    "react/no-deprecated": "error",
+    "react/no-unknown-property": ["error", { "ignore": ["css"] }],
+    "react-hooks/rules-of-hooks": "error",
+    "react-hooks/exhaustive-deps": "warn",
+    "import/no-deprecated": "error",
+    "no-console": "warn",
+    "eqeqeq": ["error", "always", { "null": "ignore" }],
+    "no-var": "error",
+    "prefer-const": "error"
+  },
+  "ignorePatterns": [
+    "node_modules/",
+    "dist/",
+    ".vinxi/",
+    ".output/",
+    "*.gen.ts",
+    "reference/"
+  ]
+}

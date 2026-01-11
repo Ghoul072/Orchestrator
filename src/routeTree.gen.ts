@@ -9,6 +9,7 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as PromptsRouteImport } from './routes/prompts'
 import { Route as LayoutRouteImport } from './routes/_layout'
 import { Route as LayoutIndexRouteImport } from './routes/_layout/index'
 import { Route as LayoutProjectsIndexRouteImport } from './routes/_layout/projects/index'
@@ -21,6 +22,11 @@ import { Route as LayoutProjectsProjectIdDocumentsRouteImport } from './routes/_
 import { Route as LayoutProjectsProjectIdMeetingsMeetingIdRouteImport } from './routes/_layout/projects/$projectId/meetings.$meetingId'
 import { Route as LayoutProjectsProjectIdDocumentsDocIdRouteImport } from './routes/_layout/projects/$projectId/documents.$docId'
 
+const PromptsRoute = PromptsRouteImport.update({
+  id: '/prompts',
+  path: '/prompts',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const LayoutRoute = LayoutRouteImport.update({
   id: '/_layout',
   getParentRoute: () => rootRouteImport,
@@ -85,6 +91,7 @@ const LayoutProjectsProjectIdDocumentsDocIdRoute =
   } as any)
 
 export interface FileRoutesByFullPath {
+  '/prompts': typeof PromptsRoute
   '/': typeof LayoutIndexRoute
   '/projects/$projectId/approvals': typeof ProjectsProjectIdApprovalsRoute
   '/projects': typeof LayoutProjectsIndexRoute
@@ -97,6 +104,7 @@ export interface FileRoutesByFullPath {
   '/projects/$projectId/meetings/$meetingId': typeof LayoutProjectsProjectIdMeetingsMeetingIdRoute
 }
 export interface FileRoutesByTo {
+  '/prompts': typeof PromptsRoute
   '/': typeof LayoutIndexRoute
   '/projects/$projectId/approvals': typeof ProjectsProjectIdApprovalsRoute
   '/projects': typeof LayoutProjectsIndexRoute
@@ -111,6 +119,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_layout': typeof LayoutRouteWithChildren
+  '/prompts': typeof PromptsRoute
   '/_layout/': typeof LayoutIndexRoute
   '/projects/$projectId/approvals': typeof ProjectsProjectIdApprovalsRoute
   '/_layout/projects/': typeof LayoutProjectsIndexRoute
@@ -125,6 +134,7 @@ export interface FileRoutesById {
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
+    | '/prompts'
     | '/'
     | '/projects/$projectId/approvals'
     | '/projects'
@@ -137,6 +147,7 @@ export interface FileRouteTypes {
     | '/projects/$projectId/meetings/$meetingId'
   fileRoutesByTo: FileRoutesByTo
   to:
+    | '/prompts'
     | '/'
     | '/projects/$projectId/approvals'
     | '/projects'
@@ -150,6 +161,7 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/_layout'
+    | '/prompts'
     | '/_layout/'
     | '/projects/$projectId/approvals'
     | '/_layout/projects/'
@@ -164,11 +176,19 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   LayoutRoute: typeof LayoutRouteWithChildren
+  PromptsRoute: typeof PromptsRoute
   ProjectsProjectIdApprovalsRoute: typeof ProjectsProjectIdApprovalsRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/prompts': {
+      id: '/prompts'
+      path: '/prompts'
+      fullPath: '/prompts'
+      preLoaderRoute: typeof PromptsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/_layout': {
       id: '/_layout'
       path: ''
@@ -307,6 +327,7 @@ const LayoutRouteWithChildren =
 
 const rootRouteChildren: RootRouteChildren = {
   LayoutRoute: LayoutRouteWithChildren,
+  PromptsRoute: PromptsRoute,
   ProjectsProjectIdApprovalsRoute: ProjectsProjectIdApprovalsRoute,
 }
 export const routeTree = rootRouteImport

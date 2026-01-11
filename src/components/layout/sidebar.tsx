@@ -11,6 +11,7 @@ import {
   Plus,
   ChevronLeft,
   ShieldCheck,
+  Sparkles,
 } from 'lucide-react'
 import { cn } from '~/lib/utils'
 import { Button } from '~/components/ui/button'
@@ -33,6 +34,7 @@ interface SidebarProps {
 
 const mainNavItems = [
   { icon: FolderKanban, label: 'Projects', href: '/' as const },
+  { icon: Sparkles, label: 'Prompts', href: '/prompts' as const },
 ]
 
 export function Sidebar({ collapsed = false }: SidebarProps) {

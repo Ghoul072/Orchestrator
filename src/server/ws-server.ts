@@ -1,5 +1,4 @@
 import { agentManager } from './acp/agent-manager'
-import { verifySession } from './auth/session'
 import { db } from './db'
 import { projects, taskUpdates } from './db/schema'
 import { eq } from 'drizzle-orm'
@@ -8,13 +7,11 @@ const WS_PORT = Number(process.env.WS_PORT) || 3001
 
 // WebSocket connection data
 interface WebSocketData {
-  sessionId: string | null
-  authSessionId: string
+  agentSessionId: string | null
   workingDirectory: string
   projectId: string | null
   taskId: string | null
   isListening: boolean
-  userId: string
 }
 
 // Client message types
@@ -63,7 +60,6 @@ async function getProjectContext(projectId: string | null): Promise<string | nul
 
 // Build system prompt with project context
 function buildSystemPrompt(
-  _projectId: string | null,
   workingDirectory: string,
   projectContext: string | null
 ): string {
@@ -112,25 +108,17 @@ const server = Bun.serve<WebSocketData>({
 
     // WebSocket upgrade at /ws endpoint
     if (url.pathname === '/ws') {
-      const authSessionId = url.searchParams.get('session')
       const workingDirectory = url.searchParams.get('cwd') || '/tmp'
       const projectId = url.searchParams.get('projectId')
       const taskId = url.searchParams.get('taskId')
 
-      if (!authSessionId) {
-        return new Response('Missing session parameter', { status: 400 })
-      }
-
-      // We'll verify the session in the open handler since verifySession is async
       const upgraded = server.upgrade(request, {
         data: {
-          sessionId: null,
-          authSessionId,
+          agentSessionId: null,
           workingDirectory,
           projectId,
           taskId,
           isListening: false,
-          userId: '', // Will be set after verification
         },
       })
 
@@ -145,30 +133,11 @@ const server = Bun.serve<WebSocketData>({
   websocket: {
     open(ws) {
       const data = ws.data
-      console.log(`[WS] New connection, verifying session...`)
+      console.log(`[WS] New connection, setting up agent session...`)
 
-      // Verify session and create agent session asynchronously
+      // Create agent session asynchronously
       void (async () => {
         try {
-          // Verify the auth session (allow bypass in development)
-          const session = await verifySession(data.authSessionId)
-          const isDev = process.env.NODE_ENV !== 'production'
-
-          if (!session && !isDev) {
-            console.log('[WS] Invalid session, closing connection')
-            ws.send(
-              JSON.stringify({ type: 'error', error: 'Invalid session' })
-            )
-            ws.close(1008, 'Invalid session')
-            return
-          }
-
-          // Use session userId if available, otherwise use 'dev-user'
-          data.userId = session?.userId || 'dev-user'
-
-          if (!session && isDev) {
-            console.log('[WS] Development mode: allowing unauthenticated connection')
-          }
           const workingDirectory = resolvePath(data.workingDirectory)
 
           // Get project context
@@ -176,26 +145,25 @@ const server = Bun.serve<WebSocketData>({
 
           // Build system prompt
           const systemPrompt = buildSystemPrompt(
-            data.projectId,
             workingDirectory,
             projectContext
           )
 
           // Create agent session
-          const sessionId = agentManager.createSession(workingDirectory, {
+          const agentSessionId = agentManager.createSession(workingDirectory, {
             systemPrompt,
             projectId: data.projectId ?? undefined,
             taskId: data.taskId ?? undefined,
           })
-          data.sessionId = sessionId
+          data.agentSessionId = agentSessionId
 
           console.log(
-            `[WS] Session verified, agent session ${sessionId} created for user ${data.userId}`
+            `[WS] Agent session ${agentSessionId} created`
           )
 
           // Send connected message
           if (ws.readyState === 1) {
-            ws.send(JSON.stringify({ type: 'connected', sessionId }))
+            ws.send(JSON.stringify({ type: 'connected', sessionId: agentSessionId }))
           }
         } catch (error) {
           console.error('[WS] Error during session setup:', error)
@@ -213,7 +181,7 @@ const server = Bun.serve<WebSocketData>({
 
     async message(ws, message) {
       const data = ws.data
-      const { sessionId } = data
+      const { agentSessionId } = data
 
       try {
         const msg: ClientMessage = JSON.parse(
@@ -230,7 +198,7 @@ const server = Bun.serve<WebSocketData>({
 
         // Handle chat messages
         if (msg.type === 'chat') {
-          if (!sessionId) {
+          if (!agentSessionId) {
             ws.send(
               JSON.stringify({
                 type: 'error',
@@ -255,7 +223,7 @@ const server = Bun.serve<WebSocketData>({
           }
 
           // Send message to agent
-          agentManager.sendMessage(sessionId, messageContent)
+          agentManager.sendMessage(agentSessionId, messageContent)
 
           // Start streaming if not already listening
           if (!data.isListening) {
@@ -264,7 +232,7 @@ const server = Bun.serve<WebSocketData>({
             // Fire and forget - stream responses to client
             ;(async () => {
               // Get task ID from agent session for saving updates
-              const agentSession = agentManager.getSession(sessionId)
+              const agentSession = agentManager.getSession(agentSessionId)
               const taskId = agentSession?.taskId || data.taskId
 
               // Accumulate assistant content for task update
@@ -272,7 +240,7 @@ const server = Bun.serve<WebSocketData>({
 
               try {
                 for await (const response of agentManager.getOutputStream(
-                  sessionId
+                  agentSessionId
                 )) {
                   if (ws.readyState === 1) {
                     ws.send(JSON.stringify(response))
@@ -308,7 +276,7 @@ const server = Bun.serve<WebSocketData>({
                 }
               } catch (error) {
                 console.error(
-                  `[WS] Stream error for session ${sessionId}:`,
+                  `[WS] Stream error for session ${agentSessionId}:`,
                   error
                 )
                 if (ws.readyState === 1) {
@@ -342,12 +310,12 @@ const server = Bun.serve<WebSocketData>({
 
     close(ws) {
       const data = ws.data
-      const { sessionId } = data
+      const { agentSessionId } = data
 
-      console.log(`[WS] Connection closed${sessionId ? `, session ${sessionId}` : ''}`)
+      console.log(`[WS] Connection closed${agentSessionId ? `, session ${agentSessionId}` : ''}`)
 
-      if (sessionId) {
-        agentManager.destroySession(sessionId)
+      if (agentSessionId) {
+        agentManager.destroySession(agentSessionId)
       }
     },
   },

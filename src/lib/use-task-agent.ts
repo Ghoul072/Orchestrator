@@ -66,18 +66,6 @@ export function useTaskAgent(options: UseTaskAgentOptions): UseTaskAgentReturn {
     },
   })
 
-  // Get auth session from cookie
-  const getAuthSession = useCallback((): string | null => {
-    const cookies = document.cookie.split(';')
-    for (const cookie of cookies) {
-      const [name, value] = cookie.trim().split('=')
-      if (name === 'session') {
-        return value
-      }
-    }
-    return null
-  }, [])
-
   // Append content to current assistant message
   const appendAssistantContent = useCallback((content: string) => {
     setMessages((prev) => {
@@ -334,9 +322,6 @@ export function useTaskAgent(options: UseTaskAgentOptions): UseTaskAgentReturn {
         return
       }
 
-      // Use auth session if available, otherwise use 'dev' placeholder for development
-      const sessionId = getAuthSession() || 'dev'
-
       setStatus('connecting')
       setMessages([])
       setProgress({
@@ -354,7 +339,7 @@ export function useTaskAgent(options: UseTaskAgentOptions): UseTaskAgentReturn {
       const taskParam = `&taskId=${encodeURIComponent(options.taskId)}`
 
       const ws = new WebSocket(
-        `${WS_URL}?session=${encodeURIComponent(sessionId)}&cwd=${cwd}${projectParam}${taskParam}`
+        `${WS_URL}?cwd=${cwd}${projectParam}${taskParam}`
       )
 
       ws.onopen = () => {
@@ -379,7 +364,7 @@ export function useTaskAgent(options: UseTaskAgentOptions): UseTaskAgentReturn {
 
       wsRef.current = ws
     },
-    [getAuthSession, handleMessage, options]
+    [handleMessage, options]
   )
 
   // Stop the agent

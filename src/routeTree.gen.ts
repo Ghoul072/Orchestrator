@@ -11,8 +11,6 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as LayoutRouteImport } from './routes/_layout'
 import { Route as LayoutIndexRouteImport } from './routes/_layout/index'
-import { Route as AuthLoginRouteImport } from './routes/auth/login'
-import { Route as AuthCallbackRouteImport } from './routes/auth/callback'
 import { Route as LayoutProjectsIndexRouteImport } from './routes/_layout/projects/index'
 import { Route as ProjectsProjectIdApprovalsRouteImport } from './routes/projects/$projectId/approvals'
 import { Route as LayoutProjectsProjectIdIndexRouteImport } from './routes/_layout/projects/$projectId/index'
@@ -31,16 +29,6 @@ const LayoutIndexRoute = LayoutIndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => LayoutRoute,
-} as any)
-const AuthLoginRoute = AuthLoginRouteImport.update({
-  id: '/auth/login',
-  path: '/auth/login',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AuthCallbackRoute = AuthCallbackRouteImport.update({
-  id: '/auth/callback',
-  path: '/auth/callback',
-  getParentRoute: () => rootRouteImport,
 } as any)
 const LayoutProjectsIndexRoute = LayoutProjectsIndexRouteImport.update({
   id: '/projects/',
@@ -97,8 +85,6 @@ const LayoutProjectsProjectIdDocumentsDocIdRoute =
   } as any)
 
 export interface FileRoutesByFullPath {
-  '/auth/callback': typeof AuthCallbackRoute
-  '/auth/login': typeof AuthLoginRoute
   '/': typeof LayoutIndexRoute
   '/projects/$projectId/approvals': typeof ProjectsProjectIdApprovalsRoute
   '/projects': typeof LayoutProjectsIndexRoute
@@ -111,8 +97,6 @@ export interface FileRoutesByFullPath {
   '/projects/$projectId/meetings/$meetingId': typeof LayoutProjectsProjectIdMeetingsMeetingIdRoute
 }
 export interface FileRoutesByTo {
-  '/auth/callback': typeof AuthCallbackRoute
-  '/auth/login': typeof AuthLoginRoute
   '/': typeof LayoutIndexRoute
   '/projects/$projectId/approvals': typeof ProjectsProjectIdApprovalsRoute
   '/projects': typeof LayoutProjectsIndexRoute
@@ -127,8 +111,6 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_layout': typeof LayoutRouteWithChildren
-  '/auth/callback': typeof AuthCallbackRoute
-  '/auth/login': typeof AuthLoginRoute
   '/_layout/': typeof LayoutIndexRoute
   '/projects/$projectId/approvals': typeof ProjectsProjectIdApprovalsRoute
   '/_layout/projects/': typeof LayoutProjectsIndexRoute
@@ -143,8 +125,6 @@ export interface FileRoutesById {
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
-    | '/auth/callback'
-    | '/auth/login'
     | '/'
     | '/projects/$projectId/approvals'
     | '/projects'
@@ -157,8 +137,6 @@ export interface FileRouteTypes {
     | '/projects/$projectId/meetings/$meetingId'
   fileRoutesByTo: FileRoutesByTo
   to:
-    | '/auth/callback'
-    | '/auth/login'
     | '/'
     | '/projects/$projectId/approvals'
     | '/projects'
@@ -172,8 +150,6 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/_layout'
-    | '/auth/callback'
-    | '/auth/login'
     | '/_layout/'
     | '/projects/$projectId/approvals'
     | '/_layout/projects/'
@@ -188,8 +164,6 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   LayoutRoute: typeof LayoutRouteWithChildren
-  AuthCallbackRoute: typeof AuthCallbackRoute
-  AuthLoginRoute: typeof AuthLoginRoute
   ProjectsProjectIdApprovalsRoute: typeof ProjectsProjectIdApprovalsRoute
 }
 
@@ -208,20 +182,6 @@ declare module '@tanstack/react-router' {
       fullPath: '/'
       preLoaderRoute: typeof LayoutIndexRouteImport
       parentRoute: typeof LayoutRoute
-    }
-    '/auth/login': {
-      id: '/auth/login'
-      path: '/auth/login'
-      fullPath: '/auth/login'
-      preLoaderRoute: typeof AuthLoginRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/auth/callback': {
-      id: '/auth/callback'
-      path: '/auth/callback'
-      fullPath: '/auth/callback'
-      preLoaderRoute: typeof AuthCallbackRouteImport
-      parentRoute: typeof rootRouteImport
     }
     '/_layout/projects/': {
       id: '/_layout/projects/'
@@ -347,8 +307,6 @@ const LayoutRouteWithChildren =
 
 const rootRouteChildren: RootRouteChildren = {
   LayoutRoute: LayoutRouteWithChildren,
-  AuthCallbackRoute: AuthCallbackRoute,
-  AuthLoginRoute: AuthLoginRoute,
   ProjectsProjectIdApprovalsRoute: ProjectsProjectIdApprovalsRoute,
 }
 export const routeTree = rootRouteImport

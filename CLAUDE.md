@@ -166,20 +166,20 @@ scripts/
 ## Implementation Status
 
 ### Phase 1: Foundation
-- [ ] TanStack Start project with shadcn/ui
-- [ ] Anthropic OAuth 2.0 + PKCE authentication
-- [ ] File-based session storage (shared between processes)
-- [ ] Database schema with Drizzle ORM
-- [ ] Basic CRUD for projects
+- [x] TanStack Start project with shadcn/ui
+- [x] Anthropic OAuth 2.0 + PKCE authentication
+- [x] File-based session storage (shared between processes)
+- [x] Database schema with Drizzle ORM
+- [x] Basic CRUD for projects
 
 ### Phase 2: Task Management
-- [ ] Task schema with hierarchical structure (parent_id)
-- [ ] Task CRUD server functions
-- [ ] Task board UI (list view)
-- [ ] Subtask management
-- [ ] Task status workflow (pending → in_progress → completed)
-- [ ] Priority and effort estimation
-- [ ] Task dependencies
+- [x] Task schema with hierarchical structure (parent_id)
+- [x] Task CRUD server functions
+- [x] Task board UI (list view)
+- [x] Subtask management
+- [x] Task status workflow (pending → in_progress → completed)
+- [x] Priority and effort estimation
+- [x] Task dependencies
 - [ ] Task filtering and search
 
 ### Phase 3: Repository Integration
@@ -190,16 +190,16 @@ scripts/
 - [ ] Re-clone on follow-up questions
 
 ### Phase 4: Agent Integration
-- [ ] Claude Agent SDK integration (query() pattern)
-- [ ] WebSocket bridge for real-time communication
-- [ ] Agent session management
-- [ ] Tool use display in chat (collapsible steps)
+- [x] Claude Agent SDK integration (query() pattern)
+- [x] WebSocket bridge for real-time communication
+- [x] Agent session management
+- [x] Tool use display in chat (collapsible steps)
 - [ ] Task assignment to agents
 - [ ] Progress streaming from agents
 - [ ] Save agent responses as task updates
 
 ### Phase 5: MCP Integration
-- [ ] MCP server exposing Orchestrator tools
+- [x] MCP server exposing Orchestrator tools
 - [ ] MCP client for source-diving-agent
 - [ ] Query knowledge base from task context
 - [ ] 2-way communication protocol
@@ -211,12 +211,12 @@ scripts/
 - [ ] Labels and milestones
 
 ### Phase 7: Meeting Notes & Documents
-- [ ] Meeting schema (date, title, attendees, content)
-- [ ] Meeting CRUD server functions
-- [ ] Meeting editor with Tiptap
+- [x] Meeting schema (date, title, attendees, content)
+- [x] Meeting CRUD server functions
+- [x] Meeting editor with Tiptap
 - [ ] "Generate Tasks" button - agent analyzes notes and creates tasks
 - [ ] "Update Tasks" button - agent compares notes to existing tasks, updates if requirements changed
-- [ ] Meeting-task linking (track which tasks came from which meeting)
+- [x] Meeting-task linking (track which tasks came from which meeting)
 - [ ] Documents/notes with Mermaid graph support
 - [ ] File uploads for images, diagrams, attachments
 - [ ] Document linking to tasks
@@ -230,7 +230,7 @@ scripts/
 - [ ] Approval history log
 
 ### Phase 9: Advanced Features
-- [ ] Kanban board view
+- [x] Kanban board view
 - [ ] Parallel agent execution
 - [ ] Git worktree management
 - [ ] Prompt library with variables
@@ -460,9 +460,73 @@ bun scripts/seed-data.ts
 # Type check
 bun run typecheck
 
+# Linting
+bun run lint         # Run oxlint
+bun run lint:fix     # Run oxlint with auto-fix
+
+# Tests
+bun run test         # Run all tests
+bun run test:watch   # Run tests in watch mode
+
 # Build
 bun run build
 ```
+
+## Development Workflow (CRITICAL)
+
+**NEVER push code without completing these steps:**
+
+1. **Write Tests** - Every new feature must have accompanying tests
+2. **Run Tests** - Execute `bun run test` and ensure ALL tests pass
+3. **Type Check** - Run `bun run typecheck` and fix all type errors
+4. **Lint** - Run `bun run lint` and fix critical issues (deprecations are errors)
+5. **Commit** - Create small, meaningful commits with co-authoring
+6. **Push** - Push to remote repository
+
+### Commit Guidelines
+
+**Small, meaningful commits:**
+- Each commit should represent ONE logical change
+- Separate tooling/config changes from feature changes
+- Separate refactoring from new features
+- Bug fixes should be their own commits
+
+**Examples of good commit separation:**
+- `chore: add oxlint with deprecation rules` (tooling)
+- `feat: add meeting notes database schema` (schema)
+- `feat: add meeting CRUD server functions` (backend)
+- `feat: add meeting editor UI components` (frontend)
+- `fix: correct icon imports for Phosphor v2` (bugfix)
+
+**Commit message format:**
+```
+type: short description
+
+Optional longer description if needed.
+
+Co-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>
+```
+
+Types: `feat`, `fix`, `chore`, `docs`, `refactor`, `test`, `style`
+
+### Linting Rules (oxlint)
+
+The project uses oxlint with strict deprecation checking:
+- **Deprecated code is an ERROR** - No deprecated APIs, imports, or patterns allowed
+- **Phosphor icons** - Must use Icon suffix (e.g., `PlusIcon` not `Plus`)
+- **Console statements** - Warnings only (allowed in server code)
+
+### Pre-Push Checklist
+```bash
+bun run test        # All tests must pass
+bun run typecheck   # No type errors
+bun run lint        # No errors (warnings OK)
+```
+
+### Telegram Notifications
+Send progress updates via Telegram after significant milestones:
+- Bot Token: `8377551670:AAEC7GbOfLggV_zu6mjf5ZUW6Q5Gk6FCjqE`
+- User ID: `1098392910`
 
 ## Key Dependencies
 - `@anthropic-ai/claude-agent-sdk` - Official Claude Agent SDK

@@ -4,6 +4,7 @@ import { Button } from '~/components/ui/button'
 import { Input } from '~/components/ui/input'
 import { Badge } from '~/components/ui/badge'
 import { ScrollArea } from '~/components/ui/scroll-area'
+import { Skeleton } from '~/components/ui/skeleton'
 import {
   ListIcon,
   SquaresFourIcon,
@@ -28,6 +29,7 @@ interface TaskBoardProps {
   onTaskStatusChange?: (taskId: string, status: TaskStatus) => void
   onCreateTask?: () => void
   className?: string
+  isLoading?: boolean
 }
 
 const statusOrder: TaskStatus[] = ['pending', 'in_progress', 'blocked', 'completed', 'cancelled']
@@ -55,6 +57,7 @@ export function TaskBoard({
   onTaskStatusChange,
   onCreateTask,
   className,
+  isLoading = false,
 }: TaskBoardProps) {
   const [viewMode, setViewMode] = useState<ViewMode>('list')
   const [groupBy, setGroupBy] = useState<GroupBy>('status')
@@ -257,7 +260,13 @@ export function TaskBoard({
       />
 
       {/* Content */}
-      {viewMode === 'list' ? (
+      {isLoading ? (
+        <div className="flex-1 p-4 space-y-3">
+          {[1, 2, 3, 4, 5].map((i) => (
+            <Skeleton key={i} className="h-24" />
+          ))}
+        </div>
+      ) : viewMode === 'list' ? (
         <ListView
           groupedTasks={groupedTasks}
           groupBy={groupBy}

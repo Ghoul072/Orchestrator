@@ -72,21 +72,6 @@ function MeetingsPage() {
     })
   }
 
-  if (isLoading) {
-    return (
-      <div className="space-y-6">
-        <div className="mb-6">
-          <Skeleton className="h-8 w-48" />
-        </div>
-        <div className="space-y-3">
-          {[1, 2, 3].map((i) => (
-            <Skeleton key={i} className="h-24" />
-          ))}
-        </div>
-      </div>
-    )
-  }
-
   return (
     <div className="space-y-6">
       <div className="mb-6 flex items-center justify-between">
@@ -102,7 +87,14 @@ function MeetingsPage() {
         </Button>
       </div>
 
-      <MeetingList
+      {isLoading ? (
+        <div className="space-y-3">
+          {[1, 2, 3].map((i) => (
+            <Skeleton key={i} className="h-24" />
+          ))}
+        </div>
+      ) : (
+        <MeetingList
         meetings={(meetings || []).map((m: { id: string; title: string; date: Date | string; attendees?: string[] | null; status: string; summary?: string | null }) => ({
           id: m.id,
           title: m.title,
@@ -114,6 +106,7 @@ function MeetingsPage() {
         onMeetingClick={handleMeetingClick}
         onCreateMeeting={() => setCreateDialogOpen(true)}
       />
+      )}
 
       {/* Create Meeting Dialog */}
       <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>

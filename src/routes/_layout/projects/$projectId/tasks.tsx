@@ -9,7 +9,6 @@ import { TaskBoard, type Task } from '~/components/tasks/task-board'
 import { TaskEditor, type TaskFormData } from '~/components/tasks/task-editor'
 import { Card, CardContent } from '~/components/ui/card'
 import { Button } from '~/components/ui/button'
-import { Skeleton } from '~/components/ui/skeleton'
 
 export const Route = createFileRoute('/_layout/projects/$projectId/tasks')({
   component: TasksPage,
@@ -110,22 +109,7 @@ function TasksPage() {
     }
   }
 
-  if (isLoading) {
-    return (
-      <div className="flex h-full flex-col">
-        <div className="border-b px-4 py-3">
-          <Skeleton className="h-8 w-48" />
-        </div>
-        <div className="flex-1 p-4 space-y-3">
-          {[1, 2, 3, 4, 5].map((i) => (
-            <Skeleton key={i} className="h-24" />
-          ))}
-        </div>
-      </div>
-    )
-  }
-
-  if (!tasks || tasks.length === 0) {
+  if (!isLoading && (!tasks || tasks.length === 0)) {
     return (
       <div className="flex h-full flex-col">
         <div className="border-b px-4 py-3">
@@ -165,6 +149,7 @@ function TasksPage() {
         onTaskStatusChange={handleTaskStatusChange}
         onCreateTask={handleCreateTask}
         className="flex-1"
+        isLoading={isLoading}
       />
 
       <TaskEditor

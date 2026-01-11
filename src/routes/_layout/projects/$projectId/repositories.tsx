@@ -73,21 +73,6 @@ function RepositoriesPage() {
     }
   }
 
-  if (isLoading) {
-    return (
-      <div className="space-y-6">
-        <div className="mb-6">
-          <Skeleton className="h-8 w-48" />
-        </div>
-        <div className="space-y-3">
-          {[1, 2, 3].map((i) => (
-            <Skeleton key={i} className="h-24" />
-          ))}
-        </div>
-      </div>
-    )
-  }
-
   return (
     <div className="space-y-6">
       <div className="mb-6 flex items-center justify-between">
@@ -101,7 +86,14 @@ function RepositoriesPage() {
         </Button>
       </div>
 
-      <RepositoryList
+      {isLoading ? (
+        <div className="space-y-3">
+          {[1, 2, 3].map((i) => (
+            <Skeleton key={i} className="h-24" />
+          ))}
+        </div>
+      ) : (
+        <RepositoryList
         repositories={(repositories || []).map((r: {
           id: string;
           name: string;
@@ -122,6 +114,7 @@ function RepositoriesPage() {
         onAddRepository={() => setAddDialogOpen(true)}
         onDeleteRepository={handleDelete}
       />
+      )}
 
       <AddRepositoryDialog
         open={addDialogOpen}

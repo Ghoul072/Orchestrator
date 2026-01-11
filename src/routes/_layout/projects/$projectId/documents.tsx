@@ -88,21 +88,6 @@ function DocumentsPage() {
     })
   }
 
-  if (isLoading) {
-    return (
-      <div className="space-y-6">
-        <div className="mb-6">
-          <Skeleton className="h-8 w-48" />
-        </div>
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {[1, 2, 3, 4, 5, 6].map((i) => (
-            <Skeleton key={i} className="h-40" />
-          ))}
-        </div>
-      </div>
-    )
-  }
-
   return (
     <div className="space-y-6">
       <div className="mb-6 flex items-center justify-between">
@@ -141,7 +126,14 @@ function DocumentsPage() {
         </TabsList>
       </Tabs>
 
-      <DocumentList
+      {isLoading ? (
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {[1, 2, 3, 4, 5, 6].map((i) => (
+            <Skeleton key={i} className="h-40" />
+          ))}
+        </div>
+      ) : (
+        <DocumentList
         documents={(documents || []).map((d: {
           id: string
           title: string
@@ -162,6 +154,7 @@ function DocumentsPage() {
         onDocumentClick={handleDocumentClick}
         onCreateDocument={() => setCreateDialogOpen(true)}
       />
+      )}
 
       {/* Create Document Dialog */}
       <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>

@@ -1,4 +1,5 @@
 import { Link, useRouterState } from '@tanstack/react-router'
+import { useQuery } from '@tanstack/react-query'
 import {
   FolderKanban,
   ListTodo,
@@ -8,6 +9,7 @@ import {
   GitBranch,
   Bot,
   Plus,
+  ChevronLeft,
 } from 'lucide-react'
 import { cn } from '~/lib/utils'
 import { Button } from '~/components/ui/button'
@@ -20,6 +22,7 @@ import {
   TooltipTrigger,
 } from '~/components/ui/tooltip'
 import { CreateProjectDialog } from '~/components/projects/create-project-dialog'
+import { projectQueryOptions } from '~/queries/projects'
 
 interface SidebarProps {
   collapsed?: boolean
@@ -36,6 +39,12 @@ export function Sidebar({ collapsed = false }: SidebarProps) {
   // Check if we're on a project page
   const projectMatch = currentPath.match(/^\/projects\/([^/]+)/)
   const projectId = projectMatch?.[1]
+
+  // Fetch project details when on project page
+  const { data: project } = useQuery({
+    ...projectQueryOptions(projectId || ''),
+    enabled: !!projectId,
+  })
 
   return (
     <TooltipProvider delayDuration={0}>
@@ -97,13 +106,28 @@ export function Sidebar({ collapsed = false }: SidebarProps) {
           {projectId && (
             <>
               <Separator className="my-4" />
-              <div className="mb-2 px-2">
-                {!collapsed && (
-                  <span className="text-xs font-medium uppercase text-muted-foreground">
-                    Project
-                  </span>
-                )}
-              </div>
+              {!collapsed ? (
+                <div className="mb-3 px-2">
+                  <Link to="/" className="mb-1 flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground">
+                    <ChevronLeft className="h-3 w-3" />
+                    Back to Projects
+                  </Link>
+                  <h3 className="font-medium truncate" title={project?.name}>
+                    {project?.name || 'Loading...'}
+                  </h3>
+                </div>
+              ) : (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Link to="/">
+                      <Button variant="ghost" size="icon" className="mb-2 w-full">
+                        <ChevronLeft className="h-5 w-5" />
+                      </Button>
+                    </Link>
+                  </TooltipTrigger>
+                  <TooltipContent side="right">Back to Projects</TooltipContent>
+                </Tooltip>
+              )}
               <div className="space-y-1">
                 <ProjectNavItem
                   icon={ListTodo}

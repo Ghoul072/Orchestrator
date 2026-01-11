@@ -12,6 +12,7 @@ interface WebSocketData {
   authSessionId: string
   workingDirectory: string
   projectId: string | null
+  taskId: string | null
   isListening: boolean
   userId: string
 }
@@ -114,6 +115,7 @@ const server = Bun.serve<WebSocketData>({
       const authSessionId = url.searchParams.get('session')
       const workingDirectory = url.searchParams.get('cwd') || '/tmp'
       const projectId = url.searchParams.get('projectId')
+      const taskId = url.searchParams.get('taskId')
 
       if (!authSessionId) {
         return new Response('Missing session parameter', { status: 400 })
@@ -126,6 +128,7 @@ const server = Bun.serve<WebSocketData>({
           authSessionId,
           workingDirectory,
           projectId,
+          taskId,
           isListening: false,
           userId: '', // Will be set after verification
         },
@@ -175,6 +178,7 @@ const server = Bun.serve<WebSocketData>({
           const sessionId = agentManager.createSession(workingDirectory, {
             systemPrompt,
             projectId: data.projectId ?? undefined,
+            taskId: data.taskId ?? undefined,
           })
           data.sessionId = sessionId
 

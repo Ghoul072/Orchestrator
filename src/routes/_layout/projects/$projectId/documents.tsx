@@ -1,11 +1,12 @@
 import { useState } from 'react'
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { PlusIcon, FileTextIcon, ChartLineUpIcon, ImageIcon } from '@phosphor-icons/react'
+import { PlusIcon, FileTextIcon, ChartLineUpIcon, ImageIcon, UploadIcon } from '@phosphor-icons/react'
 import { documentsQueryOptions } from '~/queries/documents'
 import { projectQueryOptions } from '~/queries/projects'
 import { createDocument } from '~/server/functions/documents'
 import { DocumentList } from '~/components/documents/document-list'
+import { FileUpload } from '~/components/documents/file-upload'
 import { Button } from '~/components/ui/button'
 import { Skeleton } from '~/components/ui/skeleton'
 import { Tabs, TabsList, TabsTrigger } from '~/components/ui/tabs'
@@ -41,6 +42,7 @@ function DocumentsPage() {
   const queryClient = useQueryClient()
 
   const [createDialogOpen, setCreateDialogOpen] = useState(false)
+  const [uploadDialogOpen, setUploadDialogOpen] = useState(false)
   const [newDocTitle, setNewDocTitle] = useState('')
   const [newDocType, setNewDocType] = useState<DocumentType>('note')
   const [filterType, setFilterType] = useState<DocumentType | 'all'>('all')
@@ -97,10 +99,16 @@ function DocumentsPage() {
             <p className="text-sm text-muted-foreground">{project.name}</p>
           )}
         </div>
-        <Button onClick={() => setCreateDialogOpen(true)}>
-          <PlusIcon className="mr-2 h-4 w-4" />
-          New Document
-        </Button>
+        <div className="flex gap-2">
+          <Button onClick={() => setCreateDialogOpen(true)}>
+            <PlusIcon className="mr-2 h-4 w-4" />
+            New Document
+          </Button>
+          <Button variant="outline" onClick={() => setUploadDialogOpen(true)}>
+            <UploadIcon className="mr-2 h-4 w-4" />
+            Upload File
+          </Button>
+        </div>
       </div>
 
       {/* Filter tabs */}
@@ -162,7 +170,7 @@ function DocumentsPage() {
           <DialogHeader>
             <DialogTitle>New Document</DialogTitle>
             <DialogDescription>
-              Create a new note, diagram, or upload a file.
+              Create a new note or diagram.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
@@ -198,12 +206,6 @@ function DocumentsPage() {
                     Diagram (Mermaid)
                   </div>
                 </SelectItem>
-                <SelectItem value="upload">
-                  <div className="flex items-center gap-2">
-                    <ImageIcon className="h-4 w-4" />
-                    Upload
-                  </div>
-                </SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -221,6 +223,26 @@ function DocumentsPage() {
               {createMutation.isPending ? 'Creating...' : 'Create'}
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Upload File Dialog */}
+      <Dialog open={uploadDialogOpen} onOpenChange={setUploadDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Upload File</DialogTitle>
+            <DialogDescription>
+              Upload an image, PDF, or other document.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <FileUpload
+              projectId={projectId}
+              onUploadComplete={() => {
+                setUploadDialogOpen(false)
+              }}
+            />
+          </div>
         </DialogContent>
       </Dialog>
     </div>

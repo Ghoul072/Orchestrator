@@ -3,11 +3,9 @@ import { useQuery } from '@tanstack/react-query'
 import {
   FolderKanban,
   ListTodo,
-  Settings,
   MessageSquare,
   FileText,
   GitBranch,
-  Bot,
   Plus,
   ChevronLeft,
   ShieldCheck,
@@ -171,14 +169,6 @@ export function Sidebar({ collapsed = false }: SidebarProps) {
                   collapsed={collapsed}
                 />
                 <ProjectNavItem
-                  icon={Bot}
-                  label="Agents"
-                  projectId={projectId}
-                  segment="agents"
-                  currentPath={currentPath}
-                  collapsed={collapsed}
-                />
-                <ProjectNavItem
                   icon={ShieldCheck}
                   label="Approvals"
                   projectId={projectId}
@@ -186,14 +176,6 @@ export function Sidebar({ collapsed = false }: SidebarProps) {
                   currentPath={currentPath}
                   collapsed={collapsed}
                   badge={pendingApprovalsCount > 0 ? pendingApprovalsCount : undefined}
-                />
-                <ProjectNavItem
-                  icon={Settings}
-                  label="Settings"
-                  projectId={projectId}
-                  segment="settings"
-                  currentPath={currentPath}
-                  collapsed={collapsed}
                 />
               </div>
             </>

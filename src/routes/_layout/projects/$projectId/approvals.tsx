@@ -6,7 +6,7 @@ import { approvalsQueryOptions } from '~/queries/approvals'
 import { approveApproval, rejectApproval } from '~/server/functions/approvals'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '~/components/ui/tabs'
 
-export const Route = createFileRoute('/projects/$projectId/approvals')({
+export const Route = createFileRoute('/_layout/projects/$projectId/approvals')({
   component: ApprovalsPage,
 })
 

@@ -13,12 +13,12 @@ import { Route as PromptsRouteImport } from './routes/prompts'
 import { Route as LayoutRouteImport } from './routes/_layout'
 import { Route as LayoutIndexRouteImport } from './routes/_layout/index'
 import { Route as LayoutProjectsIndexRouteImport } from './routes/_layout/projects/index'
-import { Route as ProjectsProjectIdApprovalsRouteImport } from './routes/projects/$projectId/approvals'
 import { Route as LayoutProjectsProjectIdIndexRouteImport } from './routes/_layout/projects/$projectId/index'
 import { Route as LayoutProjectsProjectIdTasksRouteImport } from './routes/_layout/projects/$projectId/tasks'
 import { Route as LayoutProjectsProjectIdRepositoriesRouteImport } from './routes/_layout/projects/$projectId/repositories'
 import { Route as LayoutProjectsProjectIdMeetingsRouteImport } from './routes/_layout/projects/$projectId/meetings'
 import { Route as LayoutProjectsProjectIdDocumentsRouteImport } from './routes/_layout/projects/$projectId/documents'
+import { Route as LayoutProjectsProjectIdApprovalsRouteImport } from './routes/_layout/projects/$projectId/approvals'
 import { Route as LayoutProjectsProjectIdMeetingsMeetingIdRouteImport } from './routes/_layout/projects/$projectId/meetings.$meetingId'
 import { Route as LayoutProjectsProjectIdDocumentsDocIdRouteImport } from './routes/_layout/projects/$projectId/documents.$docId'
 
@@ -41,12 +41,6 @@ const LayoutProjectsIndexRoute = LayoutProjectsIndexRouteImport.update({
   path: '/projects/',
   getParentRoute: () => LayoutRoute,
 } as any)
-const ProjectsProjectIdApprovalsRoute =
-  ProjectsProjectIdApprovalsRouteImport.update({
-    id: '/projects/$projectId/approvals',
-    path: '/projects/$projectId/approvals',
-    getParentRoute: () => rootRouteImport,
-  } as any)
 const LayoutProjectsProjectIdIndexRoute =
   LayoutProjectsProjectIdIndexRouteImport.update({
     id: '/projects/$projectId/',
@@ -77,6 +71,12 @@ const LayoutProjectsProjectIdDocumentsRoute =
     path: '/projects/$projectId/documents',
     getParentRoute: () => LayoutRoute,
   } as any)
+const LayoutProjectsProjectIdApprovalsRoute =
+  LayoutProjectsProjectIdApprovalsRouteImport.update({
+    id: '/projects/$projectId/approvals',
+    path: '/projects/$projectId/approvals',
+    getParentRoute: () => LayoutRoute,
+  } as any)
 const LayoutProjectsProjectIdMeetingsMeetingIdRoute =
   LayoutProjectsProjectIdMeetingsMeetingIdRouteImport.update({
     id: '/$meetingId',
@@ -93,8 +93,8 @@ const LayoutProjectsProjectIdDocumentsDocIdRoute =
 export interface FileRoutesByFullPath {
   '/prompts': typeof PromptsRoute
   '/': typeof LayoutIndexRoute
-  '/projects/$projectId/approvals': typeof ProjectsProjectIdApprovalsRoute
   '/projects': typeof LayoutProjectsIndexRoute
+  '/projects/$projectId/approvals': typeof LayoutProjectsProjectIdApprovalsRoute
   '/projects/$projectId/documents': typeof LayoutProjectsProjectIdDocumentsRouteWithChildren
   '/projects/$projectId/meetings': typeof LayoutProjectsProjectIdMeetingsRouteWithChildren
   '/projects/$projectId/repositories': typeof LayoutProjectsProjectIdRepositoriesRoute
@@ -106,8 +106,8 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/prompts': typeof PromptsRoute
   '/': typeof LayoutIndexRoute
-  '/projects/$projectId/approvals': typeof ProjectsProjectIdApprovalsRoute
   '/projects': typeof LayoutProjectsIndexRoute
+  '/projects/$projectId/approvals': typeof LayoutProjectsProjectIdApprovalsRoute
   '/projects/$projectId/documents': typeof LayoutProjectsProjectIdDocumentsRouteWithChildren
   '/projects/$projectId/meetings': typeof LayoutProjectsProjectIdMeetingsRouteWithChildren
   '/projects/$projectId/repositories': typeof LayoutProjectsProjectIdRepositoriesRoute
@@ -121,8 +121,8 @@ export interface FileRoutesById {
   '/_layout': typeof LayoutRouteWithChildren
   '/prompts': typeof PromptsRoute
   '/_layout/': typeof LayoutIndexRoute
-  '/projects/$projectId/approvals': typeof ProjectsProjectIdApprovalsRoute
   '/_layout/projects/': typeof LayoutProjectsIndexRoute
+  '/_layout/projects/$projectId/approvals': typeof LayoutProjectsProjectIdApprovalsRoute
   '/_layout/projects/$projectId/documents': typeof LayoutProjectsProjectIdDocumentsRouteWithChildren
   '/_layout/projects/$projectId/meetings': typeof LayoutProjectsProjectIdMeetingsRouteWithChildren
   '/_layout/projects/$projectId/repositories': typeof LayoutProjectsProjectIdRepositoriesRoute
@@ -136,8 +136,8 @@ export interface FileRouteTypes {
   fullPaths:
     | '/prompts'
     | '/'
-    | '/projects/$projectId/approvals'
     | '/projects'
+    | '/projects/$projectId/approvals'
     | '/projects/$projectId/documents'
     | '/projects/$projectId/meetings'
     | '/projects/$projectId/repositories'
@@ -149,8 +149,8 @@ export interface FileRouteTypes {
   to:
     | '/prompts'
     | '/'
-    | '/projects/$projectId/approvals'
     | '/projects'
+    | '/projects/$projectId/approvals'
     | '/projects/$projectId/documents'
     | '/projects/$projectId/meetings'
     | '/projects/$projectId/repositories'
@@ -163,8 +163,8 @@ export interface FileRouteTypes {
     | '/_layout'
     | '/prompts'
     | '/_layout/'
-    | '/projects/$projectId/approvals'
     | '/_layout/projects/'
+    | '/_layout/projects/$projectId/approvals'
     | '/_layout/projects/$projectId/documents'
     | '/_layout/projects/$projectId/meetings'
     | '/_layout/projects/$projectId/repositories'
@@ -177,7 +177,6 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   LayoutRoute: typeof LayoutRouteWithChildren
   PromptsRoute: typeof PromptsRoute
-  ProjectsProjectIdApprovalsRoute: typeof ProjectsProjectIdApprovalsRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -209,13 +208,6 @@ declare module '@tanstack/react-router' {
       fullPath: '/projects'
       preLoaderRoute: typeof LayoutProjectsIndexRouteImport
       parentRoute: typeof LayoutRoute
-    }
-    '/projects/$projectId/approvals': {
-      id: '/projects/$projectId/approvals'
-      path: '/projects/$projectId/approvals'
-      fullPath: '/projects/$projectId/approvals'
-      preLoaderRoute: typeof ProjectsProjectIdApprovalsRouteImport
-      parentRoute: typeof rootRouteImport
     }
     '/_layout/projects/$projectId/': {
       id: '/_layout/projects/$projectId/'
@@ -250,6 +242,13 @@ declare module '@tanstack/react-router' {
       path: '/projects/$projectId/documents'
       fullPath: '/projects/$projectId/documents'
       preLoaderRoute: typeof LayoutProjectsProjectIdDocumentsRouteImport
+      parentRoute: typeof LayoutRoute
+    }
+    '/_layout/projects/$projectId/approvals': {
+      id: '/_layout/projects/$projectId/approvals'
+      path: '/projects/$projectId/approvals'
+      fullPath: '/projects/$projectId/approvals'
+      preLoaderRoute: typeof LayoutProjectsProjectIdApprovalsRouteImport
       parentRoute: typeof LayoutRoute
     }
     '/_layout/projects/$projectId/meetings/$meetingId': {
@@ -302,6 +301,7 @@ const LayoutProjectsProjectIdMeetingsRouteWithChildren =
 interface LayoutRouteChildren {
   LayoutIndexRoute: typeof LayoutIndexRoute
   LayoutProjectsIndexRoute: typeof LayoutProjectsIndexRoute
+  LayoutProjectsProjectIdApprovalsRoute: typeof LayoutProjectsProjectIdApprovalsRoute
   LayoutProjectsProjectIdDocumentsRoute: typeof LayoutProjectsProjectIdDocumentsRouteWithChildren
   LayoutProjectsProjectIdMeetingsRoute: typeof LayoutProjectsProjectIdMeetingsRouteWithChildren
   LayoutProjectsProjectIdRepositoriesRoute: typeof LayoutProjectsProjectIdRepositoriesRoute
@@ -312,6 +312,7 @@ interface LayoutRouteChildren {
 const LayoutRouteChildren: LayoutRouteChildren = {
   LayoutIndexRoute: LayoutIndexRoute,
   LayoutProjectsIndexRoute: LayoutProjectsIndexRoute,
+  LayoutProjectsProjectIdApprovalsRoute: LayoutProjectsProjectIdApprovalsRoute,
   LayoutProjectsProjectIdDocumentsRoute:
     LayoutProjectsProjectIdDocumentsRouteWithChildren,
   LayoutProjectsProjectIdMeetingsRoute:
@@ -328,7 +329,6 @@ const LayoutRouteWithChildren =
 const rootRouteChildren: RootRouteChildren = {
   LayoutRoute: LayoutRouteWithChildren,
   PromptsRoute: PromptsRoute,
-  ProjectsProjectIdApprovalsRoute: ProjectsProjectIdApprovalsRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

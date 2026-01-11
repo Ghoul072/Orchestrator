@@ -16,6 +16,8 @@ import { Route as AuthCallbackRouteImport } from './routes/auth/callback'
 import { Route as LayoutProjectsIndexRouteImport } from './routes/_layout/projects/index'
 import { Route as LayoutProjectsProjectIdIndexRouteImport } from './routes/_layout/projects/$projectId/index'
 import { Route as LayoutProjectsProjectIdTasksRouteImport } from './routes/_layout/projects/$projectId/tasks'
+import { Route as LayoutProjectsProjectIdMeetingsRouteImport } from './routes/_layout/projects/$projectId/meetings'
+import { Route as LayoutProjectsProjectIdMeetingsMeetingIdRouteImport } from './routes/_layout/projects/$projectId/meetings.$meetingId'
 
 const LayoutRoute = LayoutRouteImport.update({
   id: '/_layout',
@@ -53,22 +55,38 @@ const LayoutProjectsProjectIdTasksRoute =
     path: '/projects/$projectId/tasks',
     getParentRoute: () => LayoutRoute,
   } as any)
+const LayoutProjectsProjectIdMeetingsRoute =
+  LayoutProjectsProjectIdMeetingsRouteImport.update({
+    id: '/projects/$projectId/meetings',
+    path: '/projects/$projectId/meetings',
+    getParentRoute: () => LayoutRoute,
+  } as any)
+const LayoutProjectsProjectIdMeetingsMeetingIdRoute =
+  LayoutProjectsProjectIdMeetingsMeetingIdRouteImport.update({
+    id: '/$meetingId',
+    path: '/$meetingId',
+    getParentRoute: () => LayoutProjectsProjectIdMeetingsRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/auth/callback': typeof AuthCallbackRoute
   '/auth/login': typeof AuthLoginRoute
   '/': typeof LayoutIndexRoute
   '/projects': typeof LayoutProjectsIndexRoute
+  '/projects/$projectId/meetings': typeof LayoutProjectsProjectIdMeetingsRouteWithChildren
   '/projects/$projectId/tasks': typeof LayoutProjectsProjectIdTasksRoute
   '/projects/$projectId': typeof LayoutProjectsProjectIdIndexRoute
+  '/projects/$projectId/meetings/$meetingId': typeof LayoutProjectsProjectIdMeetingsMeetingIdRoute
 }
 export interface FileRoutesByTo {
   '/auth/callback': typeof AuthCallbackRoute
   '/auth/login': typeof AuthLoginRoute
   '/': typeof LayoutIndexRoute
   '/projects': typeof LayoutProjectsIndexRoute
+  '/projects/$projectId/meetings': typeof LayoutProjectsProjectIdMeetingsRouteWithChildren
   '/projects/$projectId/tasks': typeof LayoutProjectsProjectIdTasksRoute
   '/projects/$projectId': typeof LayoutProjectsProjectIdIndexRoute
+  '/projects/$projectId/meetings/$meetingId': typeof LayoutProjectsProjectIdMeetingsMeetingIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -77,8 +95,10 @@ export interface FileRoutesById {
   '/auth/login': typeof AuthLoginRoute
   '/_layout/': typeof LayoutIndexRoute
   '/_layout/projects/': typeof LayoutProjectsIndexRoute
+  '/_layout/projects/$projectId/meetings': typeof LayoutProjectsProjectIdMeetingsRouteWithChildren
   '/_layout/projects/$projectId/tasks': typeof LayoutProjectsProjectIdTasksRoute
   '/_layout/projects/$projectId/': typeof LayoutProjectsProjectIdIndexRoute
+  '/_layout/projects/$projectId/meetings/$meetingId': typeof LayoutProjectsProjectIdMeetingsMeetingIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -87,16 +107,20 @@ export interface FileRouteTypes {
     | '/auth/login'
     | '/'
     | '/projects'
+    | '/projects/$projectId/meetings'
     | '/projects/$projectId/tasks'
     | '/projects/$projectId'
+    | '/projects/$projectId/meetings/$meetingId'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/auth/callback'
     | '/auth/login'
     | '/'
     | '/projects'
+    | '/projects/$projectId/meetings'
     | '/projects/$projectId/tasks'
     | '/projects/$projectId'
+    | '/projects/$projectId/meetings/$meetingId'
   id:
     | '__root__'
     | '/_layout'
@@ -104,8 +128,10 @@ export interface FileRouteTypes {
     | '/auth/login'
     | '/_layout/'
     | '/_layout/projects/'
+    | '/_layout/projects/$projectId/meetings'
     | '/_layout/projects/$projectId/tasks'
     | '/_layout/projects/$projectId/'
+    | '/_layout/projects/$projectId/meetings/$meetingId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -165,12 +191,42 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LayoutProjectsProjectIdTasksRouteImport
       parentRoute: typeof LayoutRoute
     }
+    '/_layout/projects/$projectId/meetings': {
+      id: '/_layout/projects/$projectId/meetings'
+      path: '/projects/$projectId/meetings'
+      fullPath: '/projects/$projectId/meetings'
+      preLoaderRoute: typeof LayoutProjectsProjectIdMeetingsRouteImport
+      parentRoute: typeof LayoutRoute
+    }
+    '/_layout/projects/$projectId/meetings/$meetingId': {
+      id: '/_layout/projects/$projectId/meetings/$meetingId'
+      path: '/$meetingId'
+      fullPath: '/projects/$projectId/meetings/$meetingId'
+      preLoaderRoute: typeof LayoutProjectsProjectIdMeetingsMeetingIdRouteImport
+      parentRoute: typeof LayoutProjectsProjectIdMeetingsRoute
+    }
   }
 }
+
+interface LayoutProjectsProjectIdMeetingsRouteChildren {
+  LayoutProjectsProjectIdMeetingsMeetingIdRoute: typeof LayoutProjectsProjectIdMeetingsMeetingIdRoute
+}
+
+const LayoutProjectsProjectIdMeetingsRouteChildren: LayoutProjectsProjectIdMeetingsRouteChildren =
+  {
+    LayoutProjectsProjectIdMeetingsMeetingIdRoute:
+      LayoutProjectsProjectIdMeetingsMeetingIdRoute,
+  }
+
+const LayoutProjectsProjectIdMeetingsRouteWithChildren =
+  LayoutProjectsProjectIdMeetingsRoute._addFileChildren(
+    LayoutProjectsProjectIdMeetingsRouteChildren,
+  )
 
 interface LayoutRouteChildren {
   LayoutIndexRoute: typeof LayoutIndexRoute
   LayoutProjectsIndexRoute: typeof LayoutProjectsIndexRoute
+  LayoutProjectsProjectIdMeetingsRoute: typeof LayoutProjectsProjectIdMeetingsRouteWithChildren
   LayoutProjectsProjectIdTasksRoute: typeof LayoutProjectsProjectIdTasksRoute
   LayoutProjectsProjectIdIndexRoute: typeof LayoutProjectsProjectIdIndexRoute
 }
@@ -178,6 +234,8 @@ interface LayoutRouteChildren {
 const LayoutRouteChildren: LayoutRouteChildren = {
   LayoutIndexRoute: LayoutIndexRoute,
   LayoutProjectsIndexRoute: LayoutProjectsIndexRoute,
+  LayoutProjectsProjectIdMeetingsRoute:
+    LayoutProjectsProjectIdMeetingsRouteWithChildren,
   LayoutProjectsProjectIdTasksRoute: LayoutProjectsProjectIdTasksRoute,
   LayoutProjectsProjectIdIndexRoute: LayoutProjectsProjectIdIndexRoute,
 }

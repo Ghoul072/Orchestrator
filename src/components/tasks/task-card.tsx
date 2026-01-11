@@ -24,6 +24,8 @@ import {
   Pencil,
   Trash,
   Archive,
+  GithubLogo,
+  ArrowSquareOut,
 } from '@phosphor-icons/react'
 import { cn } from '~/lib/utils'
 import { AssignAgentDialog } from './assign-agent-dialog'
@@ -44,11 +46,14 @@ export interface TaskCardProps {
   subtaskCount?: number
   completedSubtaskCount?: number
   dueDate?: Date | null
+  githubIssueUrl?: string | null
+  githubEnabled?: boolean
   onClick?: () => void
   onStatusChange?: (status: TaskStatus) => void
   onEdit?: () => void
   onDelete?: () => void
   onArchive?: () => void
+  onPushToGitHub?: () => void
   onAgentStarted?: (sessionId: string) => void
   className?: string
   compact?: boolean
@@ -88,11 +93,14 @@ export function TaskCard({
   subtaskCount = 0,
   completedSubtaskCount = 0,
   dueDate,
+  githubIssueUrl,
+  githubEnabled,
   onClick,
   onStatusChange,
   onEdit,
   onDelete,
   onArchive,
+  onPushToGitHub,
   onAgentStarted,
   className,
   compact = false,
@@ -208,6 +216,28 @@ export function TaskCard({
               <Robot className="mr-2 h-4 w-4" />
               Assign to Agent
             </DropdownMenuItem>
+            {githubEnabled && onPushToGitHub && (
+              <DropdownMenuItem
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onPushToGitHub()
+                }}
+              >
+                <GithubLogo className="mr-2 h-4 w-4" />
+                {githubIssueUrl ? 'Update GitHub Issue' : 'Push to GitHub'}
+              </DropdownMenuItem>
+            )}
+            {githubIssueUrl && (
+              <DropdownMenuItem
+                onClick={(e) => {
+                  e.stopPropagation()
+                  window.open(githubIssueUrl, '_blank')
+                }}
+              >
+                <ArrowSquareOut className="mr-2 h-4 w-4" />
+                View on GitHub
+              </DropdownMenuItem>
+            )}
             <DropdownMenuSeparator />
             {onEdit && (
               <DropdownMenuItem
@@ -298,6 +328,21 @@ export function TaskCard({
               <Clock className="mr-1 h-3 w-3" />
               {new Date(dueDate).toLocaleDateString()}
             </Badge>
+          )}
+
+          {githubIssueUrl && (
+            <a
+              href={githubIssueUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(e) => e.stopPropagation()}
+              className="inline-flex"
+            >
+              <Badge variant="outline" className="text-xs hover:bg-muted">
+                <GithubLogo className="mr-1 h-3 w-3" />
+                Issue
+              </Badge>
+            </a>
           )}
         </div>
 

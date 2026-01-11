@@ -15,6 +15,7 @@ import { Route as LayoutIndexRouteImport } from './routes/_layout/index'
 import { Route as LayoutProjectsIndexRouteImport } from './routes/_layout/projects/index'
 import { Route as LayoutProjectsProjectIdIndexRouteImport } from './routes/_layout/projects/$projectId/index'
 import { Route as LayoutProjectsProjectIdTasksRouteImport } from './routes/_layout/projects/$projectId/tasks'
+import { Route as LayoutProjectsProjectIdSettingsRouteImport } from './routes/_layout/projects/$projectId/settings'
 import { Route as LayoutProjectsProjectIdRepositoriesRouteImport } from './routes/_layout/projects/$projectId/repositories'
 import { Route as LayoutProjectsProjectIdMeetingsRouteImport } from './routes/_layout/projects/$projectId/meetings'
 import { Route as LayoutProjectsProjectIdDocumentsRouteImport } from './routes/_layout/projects/$projectId/documents'
@@ -51,6 +52,12 @@ const LayoutProjectsProjectIdTasksRoute =
   LayoutProjectsProjectIdTasksRouteImport.update({
     id: '/projects/$projectId/tasks',
     path: '/projects/$projectId/tasks',
+    getParentRoute: () => LayoutRoute,
+  } as any)
+const LayoutProjectsProjectIdSettingsRoute =
+  LayoutProjectsProjectIdSettingsRouteImport.update({
+    id: '/projects/$projectId/settings',
+    path: '/projects/$projectId/settings',
     getParentRoute: () => LayoutRoute,
   } as any)
 const LayoutProjectsProjectIdRepositoriesRoute =
@@ -98,6 +105,7 @@ export interface FileRoutesByFullPath {
   '/projects/$projectId/documents': typeof LayoutProjectsProjectIdDocumentsRouteWithChildren
   '/projects/$projectId/meetings': typeof LayoutProjectsProjectIdMeetingsRouteWithChildren
   '/projects/$projectId/repositories': typeof LayoutProjectsProjectIdRepositoriesRoute
+  '/projects/$projectId/settings': typeof LayoutProjectsProjectIdSettingsRoute
   '/projects/$projectId/tasks': typeof LayoutProjectsProjectIdTasksRoute
   '/projects/$projectId': typeof LayoutProjectsProjectIdIndexRoute
   '/projects/$projectId/documents/$docId': typeof LayoutProjectsProjectIdDocumentsDocIdRoute
@@ -111,6 +119,7 @@ export interface FileRoutesByTo {
   '/projects/$projectId/documents': typeof LayoutProjectsProjectIdDocumentsRouteWithChildren
   '/projects/$projectId/meetings': typeof LayoutProjectsProjectIdMeetingsRouteWithChildren
   '/projects/$projectId/repositories': typeof LayoutProjectsProjectIdRepositoriesRoute
+  '/projects/$projectId/settings': typeof LayoutProjectsProjectIdSettingsRoute
   '/projects/$projectId/tasks': typeof LayoutProjectsProjectIdTasksRoute
   '/projects/$projectId': typeof LayoutProjectsProjectIdIndexRoute
   '/projects/$projectId/documents/$docId': typeof LayoutProjectsProjectIdDocumentsDocIdRoute
@@ -126,6 +135,7 @@ export interface FileRoutesById {
   '/_layout/projects/$projectId/documents': typeof LayoutProjectsProjectIdDocumentsRouteWithChildren
   '/_layout/projects/$projectId/meetings': typeof LayoutProjectsProjectIdMeetingsRouteWithChildren
   '/_layout/projects/$projectId/repositories': typeof LayoutProjectsProjectIdRepositoriesRoute
+  '/_layout/projects/$projectId/settings': typeof LayoutProjectsProjectIdSettingsRoute
   '/_layout/projects/$projectId/tasks': typeof LayoutProjectsProjectIdTasksRoute
   '/_layout/projects/$projectId/': typeof LayoutProjectsProjectIdIndexRoute
   '/_layout/projects/$projectId/documents/$docId': typeof LayoutProjectsProjectIdDocumentsDocIdRoute
@@ -141,6 +151,7 @@ export interface FileRouteTypes {
     | '/projects/$projectId/documents'
     | '/projects/$projectId/meetings'
     | '/projects/$projectId/repositories'
+    | '/projects/$projectId/settings'
     | '/projects/$projectId/tasks'
     | '/projects/$projectId'
     | '/projects/$projectId/documents/$docId'
@@ -154,6 +165,7 @@ export interface FileRouteTypes {
     | '/projects/$projectId/documents'
     | '/projects/$projectId/meetings'
     | '/projects/$projectId/repositories'
+    | '/projects/$projectId/settings'
     | '/projects/$projectId/tasks'
     | '/projects/$projectId'
     | '/projects/$projectId/documents/$docId'
@@ -168,6 +180,7 @@ export interface FileRouteTypes {
     | '/_layout/projects/$projectId/documents'
     | '/_layout/projects/$projectId/meetings'
     | '/_layout/projects/$projectId/repositories'
+    | '/_layout/projects/$projectId/settings'
     | '/_layout/projects/$projectId/tasks'
     | '/_layout/projects/$projectId/'
     | '/_layout/projects/$projectId/documents/$docId'
@@ -221,6 +234,13 @@ declare module '@tanstack/react-router' {
       path: '/projects/$projectId/tasks'
       fullPath: '/projects/$projectId/tasks'
       preLoaderRoute: typeof LayoutProjectsProjectIdTasksRouteImport
+      parentRoute: typeof LayoutRoute
+    }
+    '/_layout/projects/$projectId/settings': {
+      id: '/_layout/projects/$projectId/settings'
+      path: '/projects/$projectId/settings'
+      fullPath: '/projects/$projectId/settings'
+      preLoaderRoute: typeof LayoutProjectsProjectIdSettingsRouteImport
       parentRoute: typeof LayoutRoute
     }
     '/_layout/projects/$projectId/repositories': {
@@ -305,6 +325,7 @@ interface LayoutRouteChildren {
   LayoutProjectsProjectIdDocumentsRoute: typeof LayoutProjectsProjectIdDocumentsRouteWithChildren
   LayoutProjectsProjectIdMeetingsRoute: typeof LayoutProjectsProjectIdMeetingsRouteWithChildren
   LayoutProjectsProjectIdRepositoriesRoute: typeof LayoutProjectsProjectIdRepositoriesRoute
+  LayoutProjectsProjectIdSettingsRoute: typeof LayoutProjectsProjectIdSettingsRoute
   LayoutProjectsProjectIdTasksRoute: typeof LayoutProjectsProjectIdTasksRoute
   LayoutProjectsProjectIdIndexRoute: typeof LayoutProjectsProjectIdIndexRoute
 }
@@ -319,6 +340,7 @@ const LayoutRouteChildren: LayoutRouteChildren = {
     LayoutProjectsProjectIdMeetingsRouteWithChildren,
   LayoutProjectsProjectIdRepositoriesRoute:
     LayoutProjectsProjectIdRepositoriesRoute,
+  LayoutProjectsProjectIdSettingsRoute: LayoutProjectsProjectIdSettingsRoute,
   LayoutProjectsProjectIdTasksRoute: LayoutProjectsProjectIdTasksRoute,
   LayoutProjectsProjectIdIndexRoute: LayoutProjectsProjectIdIndexRoute,
 }

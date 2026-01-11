@@ -19,7 +19,7 @@ type TaskPriority = 'low' | 'medium' | 'high' | 'urgent'
 type ViewMode = 'list' | 'kanban'
 type GroupBy = 'status' | 'priority' | 'none'
 
-export interface Task extends Omit<TaskCardProps, 'onClick' | 'onStatusChange'> {
+export interface Task extends Omit<TaskCardProps, 'onClick' | 'onStatusChange' | 'onPushToGitHub'> {
   parentId?: string | null
 }
 
@@ -27,6 +27,7 @@ interface TaskBoardProps {
   tasks: Task[]
   onTaskClick?: (taskId: string) => void
   onTaskStatusChange?: (taskId: string, status: TaskStatus) => void
+  onPushToGitHub?: (taskId: string) => void
   onCreateTask?: () => void
   className?: string
   isLoading?: boolean
@@ -55,6 +56,7 @@ export function TaskBoard({
   tasks,
   onTaskClick,
   onTaskStatusChange,
+  onPushToGitHub,
   onCreateTask,
   className,
   isLoading = false,
@@ -272,6 +274,7 @@ export function TaskBoard({
           groupBy={groupBy}
           onTaskClick={onTaskClick}
           onTaskStatusChange={onTaskStatusChange}
+          onPushToGitHub={onPushToGitHub}
           getSubtasks={getSubtasks}
         />
       ) : (
@@ -280,6 +283,7 @@ export function TaskBoard({
           groupBy={groupBy}
           onTaskClick={onTaskClick}
           onTaskStatusChange={onTaskStatusChange}
+          onPushToGitHub={onPushToGitHub}
         />
       )}
     </div>
@@ -292,12 +296,14 @@ function ListView({
   groupBy,
   onTaskClick,
   onTaskStatusChange,
+  onPushToGitHub,
   getSubtasks,
 }: {
   groupedTasks: Record<string, Task[]>
   groupBy: GroupBy
   onTaskClick?: (taskId: string) => void
   onTaskStatusChange?: (taskId: string, status: TaskStatus) => void
+  onPushToGitHub?: (taskId: string) => void
   getSubtasks: (parentId: string) => Task[]
 }) {
   return (
@@ -336,6 +342,11 @@ function ListView({
                       onClick={() => onTaskClick?.(task.id)}
                       onStatusChange={(status) =>
                         onTaskStatusChange?.(task.id, status)
+                      }
+                      onPushToGitHub={
+                        onPushToGitHub
+                          ? () => onPushToGitHub(task.id)
+                          : undefined
                       }
                       subtaskCount={subtasks.length}
                       completedSubtaskCount={
@@ -381,11 +392,13 @@ function KanbanView({
   groupBy,
   onTaskClick,
   onTaskStatusChange,
+  onPushToGitHub,
 }: {
   groupedTasks: Record<string, Task[]>
   groupBy: GroupBy
   onTaskClick?: (taskId: string) => void
   onTaskStatusChange?: (taskId: string, status: TaskStatus) => void
+  onPushToGitHub?: (taskId: string) => void
 }) {
   // For kanban, always group by status if not already
   const columns =
@@ -433,6 +446,11 @@ function KanbanView({
                     onClick={() => onTaskClick?.(task.id)}
                     onStatusChange={(newStatus) =>
                       onTaskStatusChange?.(task.id, newStatus)
+                    }
+                    onPushToGitHub={
+                      onPushToGitHub
+                        ? () => onPushToGitHub(task.id)
+                        : undefined
                     }
                   />
                 ))}

@@ -2,9 +2,11 @@ import { useState } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { ListChecks } from '@phosphor-icons/react'
+import { toast } from 'sonner'
 import { tasksQueryOptions } from '~/queries/tasks'
 import { projectQueryOptions } from '~/queries/projects'
 import { createTask, updateTask } from '~/server/functions/tasks'
+import { getGitHubStatus, pushTaskToGitHub } from '~/server/functions/github'
 import { TaskBoard, type Task } from '~/components/tasks/task-board'
 import { TaskEditor, type TaskFormData } from '~/components/tasks/task-editor'
 import { Card, CardContent } from '~/components/ui/card'
@@ -24,6 +26,29 @@ function TasksPage() {
   const { data: project } = useQuery(projectQueryOptions(projectId))
 
   const { data: tasks, isLoading } = useQuery(tasksQueryOptions({ projectId }))
+
+  // GitHub integration
+  const { data: githubStatus } = useQuery({
+    queryKey: ['github-status', projectId],
+    queryFn: () => getGitHubStatus({ data: { projectId } }),
+  })
+
+  const pushToGitHubMutation = useMutation({
+    mutationFn: (taskId: string) => pushTaskToGitHub({ data: { taskId } }),
+    onSuccess: (result) => {
+      toast.success(
+        result.action === 'created'
+          ? 'Task pushed to GitHub'
+          : 'GitHub issue updated'
+      )
+      queryClient.invalidateQueries({ queryKey: ['tasks'] })
+    },
+    onError: (error) => {
+      toast.error('Failed to push to GitHub', {
+        description: error instanceof Error ? error.message : 'Unknown error',
+      })
+    },
+  })
 
   // Create task mutation
   const createMutation = useMutation({
@@ -82,6 +107,8 @@ function TasksPage() {
     assignee: task.assignee as string | null,
     parentId: task.parentId as string | null,
     dueDate: task.dueDate ? new Date(task.dueDate as unknown as string) : null,
+    githubIssueUrl: task.githubIssueUrl as string | null,
+    githubEnabled: githubStatus?.connected ?? false,
   }))
 
   const handleTaskClick = (taskId: string) => {
@@ -107,6 +134,10 @@ function TasksPage() {
     } else {
       createMutation.mutate(data)
     }
+  }
+
+  const handlePushToGitHub = (taskId: string) => {
+    pushToGitHubMutation.mutate(taskId)
   }
 
   if (!isLoading && (!tasks || tasks.length === 0)) {
@@ -147,6 +178,7 @@ function TasksPage() {
         tasks={boardTasks}
         onTaskClick={handleTaskClick}
         onTaskStatusChange={handleTaskStatusChange}
+        onPushToGitHub={githubStatus?.connected ? handlePushToGitHub : undefined}
         onCreateTask={handleCreateTask}
         className="flex-1"
         isLoading={isLoading}

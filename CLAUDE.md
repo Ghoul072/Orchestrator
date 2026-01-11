@@ -208,7 +208,7 @@ scripts/
 - [x] "Update Tasks" button - AI compares notes to existing tasks
 - [x] Meeting-task linking (track which tasks came from which meeting)
 - [x] Documents/notes with Mermaid graph support
-- [ ] File uploads for images, diagrams, attachments
+- [x] File uploads for images, diagrams, attachments
 - [x] Document linking to tasks
 
 ### Phase 8: Git Diff & Approvals

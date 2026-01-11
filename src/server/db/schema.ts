@@ -142,6 +142,11 @@ export const projects = pgTable(
     description: text('description'),
     agentContext: text('agent_context'), // Custom system prompt for this project
     metadata: jsonb('metadata').$type<Record<string, object>>(),
+    // GitHub integration
+    githubRepo: varchar('github_repo', { length: 255 }), // Format: owner/repo
+    githubToken: text('github_token'), // Personal access token (stored locally)
+    githubSyncEnabled: boolean('github_sync_enabled').default(false).notNull(),
+    githubLastSyncAt: timestamp('github_last_sync_at', { withTimezone: true }),
     isArchived: boolean('is_archived').default(false).notNull(),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),

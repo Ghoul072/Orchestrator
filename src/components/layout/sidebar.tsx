@@ -10,6 +10,7 @@ import {
   ChevronLeft,
   ShieldCheck,
   Sparkles,
+  Settings,
 } from 'lucide-react'
 import { cn } from '~/lib/utils'
 import { Button } from '~/components/ui/button'
@@ -176,6 +177,14 @@ export function Sidebar({ collapsed = false }: SidebarProps) {
                   currentPath={currentPath}
                   collapsed={collapsed}
                   badge={pendingApprovalsCount > 0 ? pendingApprovalsCount : undefined}
+                />
+                <ProjectNavItem
+                  icon={Settings}
+                  label="Settings"
+                  projectId={projectId}
+                  segment="settings"
+                  currentPath={currentPath}
+                  collapsed={collapsed}
                 />
               </div>
             </>

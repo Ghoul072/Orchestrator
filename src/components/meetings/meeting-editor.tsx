@@ -35,7 +35,10 @@ interface MeetingEditorProps {
   }) => void
   onDelete?: () => void
   onGenerateTasks?: () => void
+  onUpdateTasks?: () => void
   isLoading?: boolean
+  isGenerating?: boolean
+  isUpdating?: boolean
   className?: string
 }
 
@@ -44,7 +47,10 @@ export function MeetingEditor({
   onSave,
   onDelete,
   onGenerateTasks,
+  onUpdateTasks,
   isLoading = false,
+  isGenerating = false,
+  isUpdating = false,
   className,
 }: MeetingEditorProps) {
   const [title, setTitle] = useState(initialData?.title ?? '')
@@ -239,25 +245,55 @@ export function MeetingEditor({
       </div>
 
       {/* Action buttons */}
-      {status === 'finalized' && onGenerateTasks && (
+      {status === 'finalized' && (onGenerateTasks || onUpdateTasks) && (
         <div className="border-t px-4 py-3">
-          <Card className="bg-muted/30">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium">
-                Generate Tasks from Meeting
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="flex items-center gap-4">
-              <p className="flex-1 text-sm text-muted-foreground">
-                Let AI analyze this meeting and generate tasks based on action
-                items and decisions.
-              </p>
-              <Button onClick={onGenerateTasks} disabled={isLoading}>
-                <LightningIcon className="mr-2 h-4 w-4" weight="fill" />
-                Generate Tasks
-              </Button>
-            </CardContent>
-          </Card>
+          <div className="space-y-3">
+            {onGenerateTasks && (
+              <Card className="bg-muted/30">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium">
+                    Generate New Tasks
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="flex items-center gap-4">
+                  <p className="flex-1 text-sm text-muted-foreground">
+                    Create new tasks based on action items and decisions from
+                    this meeting.
+                  </p>
+                  <Button
+                    onClick={onGenerateTasks}
+                    disabled={isLoading || isGenerating || isUpdating}
+                  >
+                    <LightningIcon className="mr-2 h-4 w-4" weight="fill" />
+                    {isGenerating ? 'Generating...' : 'Generate Tasks'}
+                  </Button>
+                </CardContent>
+              </Card>
+            )}
+            {onUpdateTasks && (
+              <Card className="bg-muted/30">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium">
+                    Update Existing Tasks
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="flex items-center gap-4">
+                  <p className="flex-1 text-sm text-muted-foreground">
+                    Update existing tasks based on requirement changes or
+                    priority adjustments discussed in this meeting.
+                  </p>
+                  <Button
+                    variant="outline"
+                    onClick={onUpdateTasks}
+                    disabled={isLoading || isGenerating || isUpdating}
+                  >
+                    <LightningIcon className="mr-2 h-4 w-4" />
+                    {isUpdating ? 'Updating...' : 'Update Tasks'}
+                  </Button>
+                </CardContent>
+              </Card>
+            )}
+          </div>
         </div>
       )}
     </div>

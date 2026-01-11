@@ -6,6 +6,7 @@ import {
   updateMeeting,
   deleteMeeting,
   generateTasksFromMeeting,
+  updateTasksFromMeeting,
 } from '~/server/functions/meetings'
 import { toast } from 'sonner'
 import { MeetingEditor } from '~/components/meetings/meeting-editor'
@@ -92,6 +93,27 @@ function MeetingDetailPage() {
     },
   })
 
+  const updateTasksMutation = useMutation({
+    mutationFn: () =>
+      updateTasksFromMeeting({ data: { meetingId, projectId } }),
+    onSuccess: (result) => {
+      queryClient.invalidateQueries({ queryKey: ['tasks'] })
+      queryClient.invalidateQueries({ queryKey: ['meeting', meetingId] })
+      if (result.tasksUpdated === 0) {
+        toast.info('No tasks needed updates based on this meeting.')
+      } else {
+        toast.success(
+          `Successfully updated ${result.tasksUpdated} task${result.tasksUpdated === 1 ? '' : 's'} from meeting notes.`
+        )
+      }
+    },
+    onError: (error) => {
+      toast.error(
+        error instanceof Error ? error.message : 'Failed to update tasks'
+      )
+    },
+  })
+
   const handleBack = () => {
     void navigate({
       to: '/projects/$projectId/meetings' as const,
@@ -153,7 +175,10 @@ function MeetingDetailPage() {
         onSave={(data) => updateMutation.mutate(data)}
         onDelete={() => deleteMutation.mutate()}
         onGenerateTasks={() => generateTasksMutation.mutate()}
-        isLoading={updateMutation.isPending || deleteMutation.isPending || generateTasksMutation.isPending}
+        onUpdateTasks={() => updateTasksMutation.mutate()}
+        isLoading={updateMutation.isPending || deleteMutation.isPending}
+        isGenerating={generateTasksMutation.isPending}
+        isUpdating={updateTasksMutation.isPending}
         className="flex-1"
       />
     </div>

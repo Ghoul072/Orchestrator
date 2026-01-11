@@ -273,3 +273,160 @@ Only include tasks that represent actual action items. Be specific and actionabl
       tasks: createdTasks,
     }
   })
+
+/**
+ * Update existing tasks from meeting content using AI
+ */
+export const updateTasksFromMeeting = createServerFn({ method: 'POST' })
+  .inputValidator(GenerateTasksSchema)
+  .handler(async ({ data }) => {
+    const meeting = await meetingsDb.getMeetingById(data.meetingId)
+    if (!meeting) {
+      throw new Error('Meeting not found')
+    }
+
+    if (meeting.status !== 'finalized') {
+      throw new Error('Meeting must be finalized before updating tasks')
+    }
+
+    // Get existing tasks for the project
+    const existingTasks = await tasksDb.listTasks({
+      projectId: data.projectId,
+      includeArchived: false,
+    })
+
+    if (existingTasks.length === 0) {
+      return {
+        success: true,
+        tasksUpdated: 0,
+        updates: [],
+      }
+    }
+
+    // Strip HTML tags for cleaner content
+    const plainContent = meeting.content
+      .replace(/<[^>]*>/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim()
+
+    // Format existing tasks for the prompt
+    const tasksContext = existingTasks
+      .map(
+        (t) =>
+          `- ID: ${t.id}\n  Title: ${t.title}\n  Status: ${t.status}\n  Priority: ${t.priority}\n  Description: ${t.description || 'None'}`
+      )
+      .join('\n\n')
+
+    // Use Claude to analyze meeting content and suggest updates
+    const response = await anthropic.messages.create({
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 4096,
+      messages: [
+        {
+          role: 'user',
+          content: `Analyze the following meeting notes and compare them against existing project tasks. Identify any tasks that need updates based on new requirements, scope changes, or priority adjustments mentioned in the meeting.
+
+Meeting Title: ${meeting.title}
+Date: ${meeting.date}
+Attendees: ${meeting.attendees?.join(', ') || 'Not specified'}
+
+Meeting Notes:
+${plainContent}
+
+Existing Tasks:
+${tasksContext}
+
+Respond with a JSON object containing tasks that need updates:
+{
+  "updates": [
+    {
+      "taskId": "uuid-of-task-to-update",
+      "title": "Updated title if changed (optional)",
+      "description": "Updated description if changed (optional)",
+      "priority": "updated priority if changed (optional: low/medium/high/urgent)",
+      "acceptanceCriteria": ["New criterion 1", "New criterion 2"] (optional),
+      "changesSummary": "Brief description of what changed and why"
+    }
+  ]
+}
+
+Only include tasks that actually need updates based on the meeting content. If a task's requirements, scope, or priority were discussed and changed, include it. If nothing relevant was discussed, return an empty array.`,
+        },
+      ],
+    })
+
+    // Parse the response
+    const textBlock = response.content.find((c) => c.type === 'text')
+    if (!textBlock || textBlock.type !== 'text') {
+      throw new Error('No text response from AI')
+    }
+
+    // Extract JSON from response
+    let jsonStr = textBlock.text
+    const jsonMatch = jsonStr.match(/```(?:json)?\s*([\s\S]*?)```/)
+    if (jsonMatch) {
+      jsonStr = jsonMatch[1]
+    }
+
+    interface TaskUpdate {
+      taskId: string
+      title?: string
+      description?: string
+      priority?: 'low' | 'medium' | 'high' | 'urgent'
+      acceptanceCriteria?: string[]
+      changesSummary: string
+    }
+
+    let parsedResponse: { updates: TaskUpdate[] }
+    try {
+      parsedResponse = JSON.parse(jsonStr.trim())
+    } catch {
+      throw new Error('Failed to parse AI response as JSON')
+    }
+
+    if (!Array.isArray(parsedResponse.updates)) {
+      throw new Error('Invalid response format from AI')
+    }
+
+    // Apply updates and link to meeting
+    const appliedUpdates = []
+    for (const update of parsedResponse.updates) {
+      // Verify task exists
+      const existingTask = existingTasks.find((t) => t.id === update.taskId)
+      if (!existingTask) continue
+
+      // Build update data
+      const updateData: Parameters<typeof tasksDb.updateTask>[1] = {}
+      if (update.title) updateData.title = update.title
+      if (update.description) updateData.description = update.description
+      if (update.priority) updateData.priority = update.priority
+      if (update.acceptanceCriteria) {
+        updateData.acceptanceCriteria = update.acceptanceCriteria
+      }
+
+      // Only update if there's something to change
+      if (Object.keys(updateData).length > 0) {
+        await tasksDb.updateTask(update.taskId, updateData)
+
+        // Link task to meeting with changes summary
+        await meetingsDb.linkTaskToMeeting(
+          data.meetingId,
+          update.taskId,
+          'updated',
+          update.changesSummary
+        )
+
+        appliedUpdates.push({
+          taskId: update.taskId,
+          taskTitle: existingTask.title,
+          changesSummary: update.changesSummary,
+        })
+      }
+    }
+
+    return {
+      success: true,
+      tasksUpdated: appliedUpdates.length,
+      updates: appliedUpdates,
+    }
+  })

@@ -1,6 +1,12 @@
+import { useState } from 'react'
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '~/components/ui/card'
 import { Badge } from '~/components/ui/badge'
 import { Button } from '~/components/ui/button'
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '~/components/ui/collapsible'
 import {
   TrashIcon,
   GitBranchIcon,
@@ -8,8 +14,11 @@ import {
   CheckCircleIcon,
   XCircleIcon,
   ClockIcon,
+  CaretDownIcon,
+  CaretRightIcon,
 } from '@phosphor-icons/react'
 import { cn } from '~/lib/utils'
+import { FileChanges, parseGitDiff } from '~/components/diff/file-changes'
 
 interface ApprovalCardProps {
   approval: {
@@ -70,10 +79,14 @@ export function ApprovalCard({
   isLoading = false,
   className,
 }: ApprovalCardProps) {
+  const [diffExpanded, setDiffExpanded] = useState(false)
   const action = actionConfig[approval.actionType]
   const status = statusConfig[approval.status]
   const ActionIcon = action.icon
   const StatusIcon = status.icon
+
+  // Parse diff content into file changes for proper rendering
+  const fileChanges = approval.diffContent ? parseGitDiff(approval.diffContent) : []
 
   return (
     <Card className={cn('transition-all', className)}>
@@ -114,16 +127,28 @@ export function ApprovalCard({
           </div>
         )}
 
-        {approval.diffContent && (
-          <div className="mt-2">
-            <p className="mb-1 text-xs font-medium text-muted-foreground">
-              Diff Preview:
-            </p>
-            <pre className="max-h-48 overflow-auto rounded-md bg-muted p-2 text-xs">
-              {approval.diffContent.slice(0, 1000)}
-              {approval.diffContent.length > 1000 && '...'}
-            </pre>
-          </div>
+        {approval.diffContent && fileChanges.length > 0 && (
+          <Collapsible open={diffExpanded} onOpenChange={setDiffExpanded}>
+            <CollapsibleTrigger asChild>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="mt-2 gap-1 px-2"
+              >
+                {diffExpanded ? (
+                  <CaretDownIcon className="h-4 w-4" />
+                ) : (
+                  <CaretRightIcon className="h-4 w-4" />
+                )}
+                View Diff ({fileChanges.length} file{fileChanges.length !== 1 ? 's' : ''})
+              </Button>
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <div className="mt-2 max-h-[400px] overflow-auto rounded-md border">
+                <FileChanges files={fileChanges} defaultExpanded={false} />
+              </div>
+            </CollapsibleContent>
+          </Collapsible>
         )}
       </CardContent>
 

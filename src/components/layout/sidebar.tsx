@@ -1,5 +1,5 @@
 import { Link, useRouterState } from '@tanstack/react-router'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, keepPreviousData } from '@tanstack/react-query'
 import {
   FolderKanban,
   ListTodo,
@@ -45,10 +45,14 @@ export function Sidebar({ collapsed = false }: SidebarProps) {
   const projectId = projectMatch?.[1]
 
   // Fetch project details when on project page
+  // keepPreviousData ensures we show the last known value during refetch
   const { data: project } = useQuery({
     ...projectQueryOptions(projectId || ''),
     enabled: !!projectId,
+    placeholderData: keepPreviousData,
   })
+
+  const projectName = project?.name
 
   // Fetch pending approvals count
   const { data: pendingApprovalsData } = useQuery(pendingApprovalsCountQueryOptions())
@@ -120,8 +124,8 @@ export function Sidebar({ collapsed = false }: SidebarProps) {
                     <ChevronLeft className="h-3 w-3" />
                     Back to Projects
                   </Link>
-                  <h3 className="font-medium truncate" title={project?.name}>
-                    {project?.name || 'Loading...'}
+                  <h3 className="font-medium truncate" title={projectName}>
+                    {projectName || 'Loading...'}
                   </h3>
                 </div>
               ) : (
@@ -239,7 +243,7 @@ function ProjectNavItem({
     return (
       <Tooltip>
         <TooltipTrigger asChild>
-          <a href={href}>
+          <Link to={href}>
             <Button
               variant={isActive ? 'secondary' : 'ghost'}
               size="icon"
@@ -255,7 +259,7 @@ function ProjectNavItem({
                 </Badge>
               )}
             </Button>
-          </a>
+          </Link>
         </TooltipTrigger>
         <TooltipContent side="right">
           {label}
@@ -266,7 +270,7 @@ function ProjectNavItem({
   }
 
   return (
-    <a href={href}>
+    <Link to={href}>
       <Button
         variant={isActive ? 'secondary' : 'ghost'}
         className="w-full justify-start gap-2"
@@ -279,6 +283,6 @@ function ProjectNavItem({
           </Badge>
         )}
       </Button>
-    </a>
+    </Link>
   )
 }

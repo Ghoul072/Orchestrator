@@ -110,6 +110,51 @@ Open source alternative to Linear/Jira/Monday. Modern project management with is
 
 ---
 
+### 6. Ledger (AI Agent-Aware Git Interface)
+**Path**: `reference/ledger/`
+**GitHub**: [peterjthomson/ledger](https://github.com/peterjthomson/ledger)
+**Detailed Doc**: `docs/references/reference-ledger.md`
+
+Desktop Git interface designed for AI-assisted development. Provides visibility into multiple parallel coding agents working in Git worktrees.
+
+**Key Files**:
+- `src/lib/main/git-service.ts` - Monolithic Git operations (5.5K LOC)
+- `src/lib/main/conveyor/` - Type-safe IPC system with Zod
+- `src/lib/main/plugins/` - Plugin API and agent event system
+- `src/app/` - React frontend with canvas architecture
+
+**Key Learnings**:
+- **Conveyor IPC Pattern** - Type-safe Electron IPC with Zod validation
+- **Dual Event System** - App events (LedgerEvents) + Agent events (AgentEvents)
+- **Agent Detection** - Auto-detect Cursor/Claude/Gemini from worktree paths
+- **Plugin Architecture** - Extensible with permissions model
+- **Multi-Panel Canvas** - Draggable, resizable columns for different views
+
+---
+
+### 7. Snowtree (Review-Driven Safe AI Coding)
+**Path**: `reference/snowtree/`
+**GitHub**: [bohutang/snowtree](https://github.com/bohutang/snowtree)
+**Detailed Doc**: `docs/references/reference-snowtree.md`
+
+Desktop app for safe, incremental AI code generation through review-driven workflow.
+
+**Key Files**:
+- `packages/desktop/src/executors/` - Executor pattern for AI tools
+- `packages/desktop/src/features/` - Manager pattern composition
+- `packages/ui/src/` - React frontend with panel system
+- `packages/core/` - Shared TypeScript types
+
+**Key Learnings**:
+- **Executor Pattern** - Wrap AI tools as external CLI processes with PTY
+- **Incremental Review** - Smaller diffs per round, staged checkpoints
+- **Manager Composition** - SessionManager, WorktreeManager, DiffManager, etc.
+- **Panel System** - Multi-tool support (terminal, claude, codex, diff panels)
+- **Audit Trail** - Timeline events for all operations
+- **Worktree Isolation** - Safe parallel agent execution
+
+---
+
 ## Pattern Documents (in `/docs/`)
 
 ### MCP Server Patterns
@@ -157,6 +202,13 @@ Patterns from Typebot including:
 | Agent integration | `reference/source-diving-agent/src/server/acp/` |
 | OAuth flow | `reference/source-diving-agent/src/server/auth/` |
 | Drizzle schema | `reference/source-diving-agent/src/server/db/schema.ts` |
+| Type-safe IPC | `reference/ledger/src/lib/main/conveyor/` |
+| Agent detection | `reference/ledger/src/lib/main/events/agent-events.ts` |
+| Plugin architecture | `reference/ledger/src/lib/main/plugins/` |
+| Executor pattern | `reference/snowtree/packages/desktop/src/executors/` |
+| Manager composition | `reference/snowtree/packages/desktop/src/features/` |
+| Diff management | `reference/snowtree/packages/desktop/src/features/git/` |
+| Incremental review | `reference/snowtree/` (workflow pattern) |
 
 ---
 
@@ -176,4 +228,7 @@ cd reference/source-diving-agent && git pull
 cd ../weft && git pull
 cd ../ccpm && git pull
 cd ../claude-code-mcp && git pull
+cd ../plane && git pull
+cd ../ledger && git pull
+cd ../snowtree && git pull
 ```

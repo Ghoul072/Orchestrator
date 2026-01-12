@@ -152,6 +152,8 @@ scripts/
 - `source-diving-agent` - **Primary reference** (TanStack Start, shadcn/ui, Claude Agent SDK, MCP)
 - `weft` - Task board UI patterns, approval workflows, MCP client bridge
 - `ccpm` - GitHub Issues integration, parallel agents, PRD workflow
+- `ledger` - Agent-aware Git interface, type-safe IPC (Conveyor), plugin architecture
+- `snowtree` - Executor pattern for AI tools, incremental review workflow, manager composition
 
 ## Implementation Status
 

@@ -20,7 +20,7 @@ export const getRouter = () => {
     routeTree,
     scrollRestoration: true,
     defaultPreload: 'intent',
-    defaultPreloadStaleTime: 0,
+    defaultPreloadStaleTime: 1000 * 60 * 5, // Match query staleTime - prevents unnecessary refetches
     context: {
       queryClient,
     },

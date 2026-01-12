@@ -43,7 +43,7 @@ type TaskPriority = 'low' | 'medium' | 'high' | 'urgent'
 type ViewMode = 'list' | 'kanban'
 type GroupBy = 'status' | 'priority' | 'none'
 
-export interface Task extends Omit<TaskCardProps, 'onClick' | 'onStatusChange' | 'onPushToGitHub'> {
+export interface Task extends Omit<TaskCardProps, 'onClick' | 'onStatusChange' | 'onPushToGitHub' | 'onAddSubtask'> {
   parentId?: string | null
   repositoryId?: string | null
 }
@@ -53,6 +53,7 @@ interface TaskBoardProps {
   onTaskClick?: (taskId: string) => void
   onTaskStatusChange?: (taskId: string, status: TaskStatus) => void
   onPushToGitHub?: (taskId: string) => void
+  onAddSubtask?: (parentTaskId: string) => void
   onCreateTask?: () => void
   className?: string
   isLoading?: boolean
@@ -82,6 +83,7 @@ export function TaskBoard({
   onTaskClick,
   onTaskStatusChange,
   onPushToGitHub,
+  onAddSubtask,
   onCreateTask,
   className,
   isLoading = false,
@@ -341,6 +343,7 @@ export function TaskBoard({
           onTaskClick={onTaskClick}
           onTaskStatusChange={onTaskStatusChange}
           onPushToGitHub={onPushToGitHub}
+          onAddSubtask={onAddSubtask}
           getSubtasks={getSubtasks}
         />
       ) : (
@@ -350,6 +353,7 @@ export function TaskBoard({
           onTaskClick={onTaskClick}
           onTaskStatusChange={onTaskStatusChange}
           onPushToGitHub={onPushToGitHub}
+          onAddSubtask={onAddSubtask}
           allTasks={tasks}
         />
       )}
@@ -364,6 +368,7 @@ function ListView({
   onTaskClick,
   onTaskStatusChange,
   onPushToGitHub,
+  onAddSubtask,
   getSubtasks,
 }: {
   groupedTasks: Record<string, Task[]>
@@ -371,6 +376,7 @@ function ListView({
   onTaskClick?: (taskId: string) => void
   onTaskStatusChange?: (taskId: string, status: TaskStatus) => void
   onPushToGitHub?: (taskId: string) => void
+  onAddSubtask?: (parentTaskId: string) => void
   getSubtasks: (parentId: string) => Task[]
 }) {
   return (
@@ -413,6 +419,11 @@ function ListView({
                       onPushToGitHub={
                         onPushToGitHub
                           ? () => onPushToGitHub(task.id)
+                          : undefined
+                      }
+                      onAddSubtask={
+                        onAddSubtask
+                          ? () => onAddSubtask(task.id)
                           : undefined
                       }
                       subtaskCount={subtasks.length}
@@ -459,11 +470,13 @@ function SortableTaskCard({
   onTaskClick,
   onTaskStatusChange,
   onPushToGitHub,
+  onAddSubtask,
 }: {
   task: Task
   onTaskClick?: (taskId: string) => void
   onTaskStatusChange?: (taskId: string, status: TaskStatus) => void
   onPushToGitHub?: (taskId: string) => void
+  onAddSubtask?: (parentTaskId: string) => void
 }) {
   const {
     attributes,
@@ -487,6 +500,7 @@ function SortableTaskCard({
         onClick={() => onTaskClick?.(task.id)}
         onStatusChange={(newStatus) => onTaskStatusChange?.(task.id, newStatus)}
         onPushToGitHub={onPushToGitHub ? () => onPushToGitHub(task.id) : undefined}
+        onAddSubtask={onAddSubtask ? () => onAddSubtask(task.id) : undefined}
         className="cursor-grab active:cursor-grabbing"
       />
     </div>
@@ -500,12 +514,14 @@ function KanbanColumn({
   onTaskClick,
   onTaskStatusChange,
   onPushToGitHub,
+  onAddSubtask,
 }: {
   status: TaskStatus
   tasks: Task[]
   onTaskClick?: (taskId: string) => void
   onTaskStatusChange?: (taskId: string, status: TaskStatus) => void
   onPushToGitHub?: (taskId: string) => void
+  onAddSubtask?: (parentTaskId: string) => void
 }) {
   return (
     <div
@@ -532,6 +548,7 @@ function KanbanColumn({
                 onTaskClick={onTaskClick}
                 onTaskStatusChange={onTaskStatusChange}
                 onPushToGitHub={onPushToGitHub}
+                onAddSubtask={onAddSubtask}
               />
             ))}
 
@@ -554,6 +571,7 @@ function KanbanView({
   onTaskClick,
   onTaskStatusChange,
   onPushToGitHub,
+  onAddSubtask,
   allTasks,
 }: {
   groupedTasks: Record<string, Task[]>
@@ -561,6 +579,7 @@ function KanbanView({
   onTaskClick?: (taskId: string) => void
   onTaskStatusChange?: (taskId: string, status: TaskStatus) => void
   onPushToGitHub?: (taskId: string) => void
+  onAddSubtask?: (parentTaskId: string) => void
   allTasks: Task[]
 }) {
   const [activeId, setActiveId] = useState<string | null>(null)
@@ -664,6 +683,7 @@ function KanbanView({
               onTaskClick={onTaskClick}
               onTaskStatusChange={onTaskStatusChange}
               onPushToGitHub={onPushToGitHub}
+              onAddSubtask={onAddSubtask}
             />
           )
         })}

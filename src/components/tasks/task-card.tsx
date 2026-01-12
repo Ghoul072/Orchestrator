@@ -26,6 +26,7 @@ import {
   Archive,
   GithubLogo,
   ArrowSquareOut,
+  Plus,
 } from '@phosphor-icons/react'
 import { cn, stripHtml } from '~/lib/utils'
 import { AssignAgentDialog } from './assign-agent-dialog'
@@ -55,6 +56,7 @@ export interface TaskCardProps {
   onDelete?: () => void
   onArchive?: () => void
   onPushToGitHub?: () => void
+  onAddSubtask?: () => void
   onAgentStarted?: (sessionId: string) => void
   className?: string
   compact?: boolean
@@ -103,6 +105,7 @@ export function TaskCard({
   onDelete,
   onArchive,
   onPushToGitHub,
+  onAddSubtask,
   onAgentStarted,
   className,
   compact = false,
@@ -238,6 +241,17 @@ export function TaskCard({
               >
                 <ArrowSquareOut className="mr-2 h-4 w-4" />
                 View on GitHub
+              </DropdownMenuItem>
+            )}
+            {onAddSubtask && (
+              <DropdownMenuItem
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onAddSubtask()
+                }}
+              >
+                <Plus className="mr-2 h-4 w-4" />
+                Add Subtask
               </DropdownMenuItem>
             )}
             <DropdownMenuSeparator />

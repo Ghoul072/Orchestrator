@@ -52,6 +52,7 @@ interface TaskEditorProps {
   onDelete?: () => void
   isEditing?: boolean
   isLoading?: boolean
+  parentTaskTitle?: string
 }
 
 const priorityOptions: { value: TaskPriority; label: string; color: string }[] = [
@@ -86,6 +87,7 @@ export function TaskEditor({
   onDelete,
   isEditing = false,
   isLoading = false,
+  parentTaskTitle,
 }: TaskEditorProps) {
   const [formData, setFormData] = useState<TaskFormData>({
     title: '',
@@ -144,12 +146,18 @@ export function TaskEditor({
       <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col">
         <DialogHeader>
           <DialogTitle>
-            {isEditing ? 'Edit Task' : 'Create New Task'}
+            {isEditing
+              ? 'Edit Task'
+              : parentTaskTitle
+                ? 'Create Subtask'
+                : 'Create New Task'}
           </DialogTitle>
           <DialogDescription>
             {isEditing
               ? 'Update the task details below.'
-              : 'Fill in the details to create a new task.'}
+              : parentTaskTitle
+                ? `Creating subtask under "${parentTaskTitle}"`
+                : 'Fill in the details to create a new task.'}
           </DialogDescription>
         </DialogHeader>
 

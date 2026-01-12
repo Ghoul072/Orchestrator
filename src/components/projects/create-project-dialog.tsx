@@ -130,29 +130,28 @@ export function CreateProjectDialog({ trigger }: CreateProjectDialogProps) {
                 minHeight="200px"
               />
             </div>
-            <div className="flex items-start space-x-3 rounded-lg border p-4 bg-muted/30">
+            <label
+              htmlFor="generate-tasks"
+              className="flex items-center gap-3 rounded-lg border p-4 bg-muted/30 cursor-pointer"
+            >
               <Checkbox
                 id="generate-tasks"
                 checked={generateTasks && hasDescriptionForTasks}
                 onCheckedChange={(checked) => setGenerateTasks(checked === true)}
                 disabled={!hasDescriptionForTasks}
-                className="mt-0.5"
               />
-              <div className="grid gap-1.5 leading-none">
-                <Label
-                  htmlFor="generate-tasks"
-                  className="flex items-center gap-2 text-sm font-medium cursor-pointer"
-                >
+              <div className="flex flex-col gap-1">
+                <div className="flex items-center gap-2">
                   <Sparkles className="h-4 w-4 text-primary" />
-                  Generate initial tasks from description
-                </Label>
+                  <span className="text-sm font-medium">Generate initial tasks from description</span>
+                </div>
                 <p className="text-xs text-muted-foreground">
                   {hasDescriptionForTasks
                     ? 'AI will analyze your description and create a task breakdown'
                     : 'Add more details to your description (at least 10 characters) to enable AI task generation'}
                 </p>
               </div>
-            </div>
+            </label>
           </div>
           <DialogFooter className="pt-4 border-t">
             <Button

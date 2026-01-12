@@ -277,18 +277,11 @@ export class AgentSession {
           }
         }
 
-        // Handle assistant messages
-        if (msg.type === 'assistant') {
-          const assistantMsg = message as {
-            message?: { content?: Array<{ type: string; text?: string }> }
-          }
-          const textContent = assistantMsg.message?.content?.find(
-            (c) => c.type === 'text'
-          )
-          if (textContent?.text) {
-            yield { type: 'assistant_message', content: textContent.text }
-          }
-        }
+        // Note: Assistant message content is already streamed via text_delta events
+        // when includePartialMessages is true. We don't need to emit it again here
+        // as that would cause duplicate content in the chat.
+        // The msg.type === 'assistant' message is just a confirmation that the
+        // turn is complete, but all text was already sent via stream_event.
 
         // Handle final result
         if (msg.type === 'result') {

@@ -26,6 +26,7 @@ function TasksPage() {
 
   const [editorOpen, setEditorOpen] = useState(false)
   const [editingTask, setEditingTask] = useState<Task | null>(null)
+  const [parentTaskId, setParentTaskId] = useState<string | null>(null)
   const [activeAgentTaskId, setActiveAgentTaskId] = useState<string | null>(null)
   const [repoFilter, setRepoFilter] = useState('all')
 
@@ -191,6 +192,13 @@ function TasksPage() {
 
   const handleCreateTask = () => {
     setEditingTask(null)
+    setParentTaskId(null)
+    setEditorOpen(true)
+  }
+
+  const handleAddSubtask = (parentId: string) => {
+    setEditingTask(null)
+    setParentTaskId(parentId)
     setEditorOpen(true)
   }
 
@@ -269,6 +277,7 @@ function TasksPage() {
           onTaskClick={handleTaskClick}
           onTaskStatusChange={handleTaskStatusChange}
           onPushToGitHub={githubTokenStatus?.available ? handlePushToGitHub : undefined}
+          onAddSubtask={handleAddSubtask}
           onCreateTask={handleCreateTask}
           className="flex-1"
           isLoading={isLoading}
@@ -308,7 +317,10 @@ function TasksPage() {
         open={editorOpen}
         onOpenChange={(open) => {
           setEditorOpen(open)
-          if (!open) setEditingTask(null)
+          if (!open) {
+            setEditingTask(null)
+            setParentTaskId(null)
+          }
         }}
         initialData={
           editingTask
@@ -325,7 +337,9 @@ function TasksPage() {
                   : undefined,
                 repositoryId: editingTask.repositoryId ?? null,
               }
-            : undefined
+            : parentTaskId
+              ? { parentId: parentTaskId }
+              : undefined
         }
         onSubmit={handleEditorSubmit}
         isEditing={!!editingTask}
@@ -334,6 +348,11 @@ function TasksPage() {
           id: repo.id as string,
           name: repo.name as string,
         }))}
+        parentTaskTitle={
+          parentTaskId
+            ? boardTasks.find((t) => t.id === parentTaskId)?.title
+            : undefined
+        }
       />
     </div>
   )

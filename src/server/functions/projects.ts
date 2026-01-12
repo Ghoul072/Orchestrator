@@ -1,6 +1,11 @@
 import { createServerFn } from '@tanstack/react-start'
 import { z } from 'zod'
+import Anthropic from '@anthropic-ai/sdk'
 import * as projectsDb from '~/server/db/projects'
+import * as tasksDb from '~/server/db/tasks'
+
+// Initialize Anthropic client
+const anthropic = new Anthropic()
 
 // =============================================================================
 // SCHEMAS
@@ -177,4 +182,161 @@ export const removeTagFromProject = createServerFn({ method: 'POST' })
   .handler(async ({ data }) => {
     await projectsDb.removeTagFromProject(data.projectId, data.tagId)
     return { success: true }
+  })
+
+// =============================================================================
+// AI TASK GENERATION FROM PROJECT DESCRIPTION
+// =============================================================================
+
+const GenerateTasksFromDescriptionSchema = z.object({
+  projectId: z.string().uuid(),
+})
+
+interface GeneratedTask {
+  title: string
+  description: string
+  priority: 'low' | 'medium' | 'high' | 'urgent'
+  effort: 'xs' | 'sm' | 'md' | 'lg' | 'xl'
+  acceptanceCriteria: string[]
+  subtasks?: Array<{
+    title: string
+    description?: string
+  }>
+}
+
+/**
+ * Generate initial tasks from project description using AI
+ */
+export const generateTasksFromDescription = createServerFn({ method: 'POST' })
+  .inputValidator(GenerateTasksFromDescriptionSchema)
+  .handler(async ({ data }) => {
+    const project = await projectsDb.getProjectById(data.projectId)
+    if (!project) {
+      throw new Error('Project not found')
+    }
+
+    if (!project.description || project.description.trim().length < 10) {
+      throw new Error('Project description is too short to generate meaningful tasks')
+    }
+
+    // Strip HTML tags for cleaner content
+    const plainDescription = project.description
+      .replace(/<[^>]*>/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim()
+
+    // Use Claude to analyze project description and generate tasks
+    const response = await anthropic.messages.create({
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 4096,
+      messages: [
+        {
+          role: 'user',
+          content: `You are a project planning assistant. Analyze the following project description and create a comprehensive task breakdown for building this project.
+
+Project Name: ${project.name}
+
+Project Description:
+${plainDescription}
+
+Create a structured list of tasks needed to complete this project. For each task, provide:
+- A clear, actionable title
+- A detailed description
+- Priority (low/medium/high/urgent)
+- Effort estimate (xs/sm/md/lg/xl)
+- Acceptance criteria
+- Subtasks if needed for complex tasks
+
+Respond with a JSON object:
+{
+  "tasks": [
+    {
+      "title": "Task title",
+      "description": "Detailed description of what needs to be done",
+      "priority": "medium",
+      "effort": "md",
+      "acceptanceCriteria": ["Criterion 1", "Criterion 2"],
+      "subtasks": [
+        { "title": "Subtask title", "description": "Optional description" }
+      ]
+    }
+  ]
+}
+
+Focus on:
+1. Breaking down the project into manageable, actionable tasks
+2. Logical ordering (foundation tasks first, then features)
+3. Including technical setup, core features, and polish tasks
+4. Being specific and actionable
+
+Generate between 5-15 tasks depending on project complexity.`,
+        },
+      ],
+    })
+
+    // Parse the response
+    const textBlock = response.content.find((c) => c.type === 'text')
+    if (!textBlock || textBlock.type !== 'text') {
+      throw new Error('No text response from AI')
+    }
+
+    // Extract JSON from response (may be wrapped in markdown code block)
+    let jsonStr = textBlock.text
+    const jsonMatch = jsonStr.match(/```(?:json)?\s*([\s\S]*?)```/)
+    if (jsonMatch) {
+      jsonStr = jsonMatch[1]
+    }
+
+    let parsedResponse: { tasks: GeneratedTask[] }
+    try {
+      parsedResponse = JSON.parse(jsonStr.trim())
+    } catch {
+      throw new Error('Failed to parse AI response as JSON')
+    }
+
+    if (!Array.isArray(parsedResponse.tasks)) {
+      throw new Error('Invalid response format from AI')
+    }
+
+    // Create tasks
+    const createdTasks = []
+    let sortOrder = 0
+
+    for (const taskData of parsedResponse.tasks) {
+      // Create the main task
+      const task = await tasksDb.createTask({
+        projectId: data.projectId,
+        title: taskData.title,
+        description: taskData.description,
+        priority: taskData.priority,
+        effort: taskData.effort,
+        acceptanceCriteria: taskData.acceptanceCriteria,
+        status: 'pending',
+        sortOrder: sortOrder++,
+      })
+
+      createdTasks.push(task)
+
+      // Create subtasks if any
+      if (taskData.subtasks && taskData.subtasks.length > 0) {
+        let subtaskOrder = 0
+        for (const subtaskData of taskData.subtasks) {
+          await tasksDb.createTask({
+            projectId: data.projectId,
+            parentId: task.id,
+            title: subtaskData.title,
+            description: subtaskData.description,
+            priority: taskData.priority,
+            status: 'pending',
+            sortOrder: subtaskOrder++,
+          })
+        }
+      }
+    }
+
+    return {
+      success: true,
+      tasksCreated: createdTasks.length,
+      tasks: createdTasks,
+    }
   })

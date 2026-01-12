@@ -19,7 +19,7 @@ import type { Prompt } from '~/server/db/schema'
 
 type PromptCategory = 'analysis' | 'security' | 'documentation' | 'review' | 'custom'
 
-export const Route = createFileRoute('/prompts')({
+export const Route = createFileRoute('/_layout/prompts')({
   component: PromptsPage,
 })
 

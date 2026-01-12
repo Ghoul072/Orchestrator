@@ -17,6 +17,7 @@ export const projectQueryOptions = (id: string) =>
     queryKey: ['project', id],
     queryFn: () => getProject({ data: { id } }),
     enabled: !!id,
+    staleTime: 5 * 60 * 1000, // Keep project data fresh for 5 minutes
   })
 
 export const projectWithTagsQueryOptions = (id: string) =>

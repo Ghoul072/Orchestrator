@@ -464,14 +464,26 @@ bun run build
 
 ## Development Workflow (CRITICAL)
 
-**NEVER push code without completing these steps:**
+**NEVER leave code uncommitted and unpushed. Follow these steps after every change:**
 
 1. **Write Tests** - Every new feature must have accompanying tests
-2. **Run Tests** - Execute `bun run test` and ensure ALL tests pass
-3. **Type Check** - Run `bun run typecheck` and fix all type errors
-4. **Lint** - Run `bun run lint` and fix critical issues (deprecations are errors)
-5. **Commit** - Create small, meaningful commits with co-authoring
-6. **Push** - Push to remote repository
+2. **Run Unit Tests** - Execute `bun run test` and ensure ALL tests pass
+3. **Run E2E Tests** - Execute `bun run test:e2e` and ensure ALL Playwright tests pass
+4. **Type Check** - Run `bun run typecheck` and fix all type errors
+5. **Lint** - Run `bun run lint` and fix critical issues (deprecations are errors)
+6. **Commit** - Create small, meaningful commits with co-authoring (Claude Opus 4.5)
+7. **Push** - Push to remote repository immediately after committing
+8. **Notify** - Send Telegram notification after pushing (see Telegram Notifications section)
+
+**IMPORTANT**: Changes must be pushed and user notified via Telegram. Never leave work unpushed.
+
+### Pre-Push Checklist (ALL REQUIRED)
+```bash
+bun run test        # All unit/integration tests must pass
+bun run test:e2e    # All Playwright E2E tests must pass
+bun run typecheck   # No type errors
+bun run lint        # No errors (warnings OK)
+```
 
 ### Commit Guidelines
 
@@ -654,12 +666,14 @@ curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" 
   -d "text=✅ Milestone: Database schema implemented"
 ```
 
-### When to Send Updates
-- Session start: "🚀 Starting work on [feature]"
-- Milestone complete: "✅ [Component] implemented and tested"
-- Commit pushed: "📝 Pushed: [commit message]"
-- Error/blocker: "⚠️ Issue: [description]"
-- Session end: "🏁 Session complete: [summary]"
+### When to Send Updates (MANDATORY)
+- **Session start**: "🚀 Starting work on [feature]" - Send at beginning of work
+- **After every push**: "📝 Pushed: [commit message]" - ALWAYS notify after git push
+- **Milestone complete**: "✅ [Component] implemented and tested"
+- **Error/blocker**: "⚠️ Issue: [description]"
+- **Session end**: "🏁 Session complete: [summary]"
+
+**CRITICAL**: After every `git push`, you MUST send a Telegram notification to keep the user informed.
 
 ## Human-Friendly Flow
 

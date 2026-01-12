@@ -21,16 +21,17 @@ test.describe('Orchestrator App', () => {
     // Wait for dialog to open
     await expect(page.getByRole('dialog')).toBeVisible()
 
-    // Fill in project details
+    // Fill in project name (description is optional and uses TiptapEditor)
     await page.getByPlaceholder('My Awesome Project').fill(projectName)
-    await page.getByPlaceholder('A brief description of your project...').fill('A test project')
 
     // Submit
     await page.getByRole('button', { name: /create project/i }).click()
 
-    // Dialog should close and project should appear
-    await expect(page.getByRole('dialog')).toBeHidden()
-    await expect(page.getByRole('link', { name: projectName })).toBeVisible()
+    // Wait for navigation to project page (dialog closes and navigates)
+    await page.waitForURL(/\/projects\/.*/)
+
+    // Should be on the project detail page
+    await expect(page.getByText(projectName)).toBeVisible()
   })
 
   test('project detail page loads with dashboard', async ({ page }) => {
@@ -42,10 +43,9 @@ test.describe('Orchestrator App', () => {
     await expect(page.getByRole('dialog')).toBeVisible()
     await page.getByPlaceholder('My Awesome Project').fill(projectName)
     await page.getByRole('button', { name: /create project/i }).click()
-    await expect(page.getByRole('dialog')).toBeHidden()
 
-    // Click on the project card
-    await page.getByRole('link', { name: projectName }).click()
+    // Wait for navigation to project page
+    await page.waitForURL(/\/projects\/.*/)
 
     // Should see the project dashboard with stats
     await page.waitForLoadState('networkidle')
@@ -63,9 +63,9 @@ test.describe('Orchestrator App', () => {
     await expect(page.getByRole('dialog')).toBeVisible()
     await page.getByPlaceholder('My Awesome Project').fill(projectName)
     await page.getByRole('button', { name: /create project/i }).click()
-    await expect(page.getByRole('dialog')).toBeHidden()
 
-    await page.getByRole('link', { name: projectName }).click()
+    // Wait for navigation to project page
+    await page.waitForURL(/\/projects\/.*/)
     await page.waitForLoadState('networkidle')
 
     // Navigate to tasks page from sidebar
@@ -103,8 +103,9 @@ test.describe('Orchestrator App', () => {
     await expect(page.getByRole('dialog')).toBeVisible()
     await page.getByPlaceholder('My Awesome Project').fill(projectName)
     await page.getByRole('button', { name: /create project/i }).click()
-    await expect(page.getByRole('dialog')).toBeHidden()
-    await page.getByRole('link', { name: projectName }).click()
+
+    // Wait for navigation to project page
+    await page.waitForURL(/\/projects\/.*/)
     await page.waitForLoadState('networkidle')
 
     // Click Meetings button in sidebar
@@ -124,8 +125,9 @@ test.describe('Orchestrator App', () => {
     await expect(page.getByRole('dialog')).toBeVisible()
     await page.getByPlaceholder('My Awesome Project').fill(projectName)
     await page.getByRole('button', { name: /create project/i }).click()
-    await expect(page.getByRole('dialog')).toBeHidden()
-    await page.getByRole('link', { name: projectName }).click()
+
+    // Wait for navigation to project page
+    await page.waitForURL(/\/projects\/.*/)
     await page.waitForLoadState('networkidle')
 
     // Click Documents button in sidebar

@@ -9,8 +9,8 @@ import {
 } from '~/components/ui/dialog'
 import { Button } from '~/components/ui/button'
 import { Input } from '~/components/ui/input'
-import { Textarea } from '~/components/ui/textarea'
 import { ScrollArea } from '~/components/ui/scroll-area'
+import { TiptapEditor } from '~/components/editor/tiptap-editor'
 import {
   Select,
   SelectContent,
@@ -174,16 +174,16 @@ export function TaskEditor({
               {/* Description */}
               <div className="space-y-2">
                 <label className="text-sm font-medium">Description</label>
-                <Textarea
-                  value={formData.description}
-                  onChange={(e) =>
+                <TiptapEditor
+                  content={formData.description || ''}
+                  onChange={(html) =>
                     setFormData((prev) => ({
                       ...prev,
-                      description: e.target.value,
+                      description: html,
                     }))
                   }
                   placeholder="Describe the task..."
-                  rows={4}
+                  minHeight="150px"
                 />
               </div>
 

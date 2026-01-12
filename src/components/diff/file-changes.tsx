@@ -16,6 +16,7 @@ import {
   CopyIcon,
 } from '@phosphor-icons/react'
 import { cn } from '~/lib/utils'
+import type { DiffLineComment } from './diff-line-comments'
 
 interface FileChange {
   path: string
@@ -285,4 +286,168 @@ export function parseGitDiff(diffOutput: string): FileChange[] {
   }
 
   return files
+}
+
+// ============================================================================
+// WITH COMMENTS VARIANT
+// ============================================================================
+
+interface FileChangesWithCommentsProps extends FileChangesProps {
+  comments: DiffLineComment[]
+  onAddComment?: (comment: Omit<DiffLineComment, 'id' | 'createdAt'>) => void
+  onRemoveComment?: (commentId: string) => void
+  enableComments?: boolean
+}
+
+export function FileChangesWithComments({
+  files,
+  defaultExpanded = false,
+  comments,
+  onAddComment,
+  onRemoveComment,
+  enableComments = false,
+  className,
+}: FileChangesWithCommentsProps) {
+  const [expandedFiles, setExpandedFiles] = useState<Set<string>>(
+    defaultExpanded ? new Set(files.map((f) => f.path)) : new Set()
+  )
+
+  const toggleFile = (path: string) => {
+    setExpandedFiles((prev) => {
+      const next = new Set(prev)
+      if (next.has(path)) {
+        next.delete(path)
+      } else {
+        next.add(path)
+      }
+      return next
+    })
+  }
+
+  const expandAll = () => {
+    setExpandedFiles(new Set(files.map((f) => f.path)))
+  }
+
+  const collapseAll = () => {
+    setExpandedFiles(new Set())
+  }
+
+  const totalAdditions = files.reduce((sum, f) => sum + f.additions, 0)
+  const totalDeletions = files.reduce((sum, f) => sum + f.deletions, 0)
+
+  return (
+    <div className={cn('space-y-4', className)}>
+      {/* Summary header */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <span className="text-sm font-medium">
+            {files.length} file{files.length !== 1 ? 's' : ''} changed
+          </span>
+          <div className="flex items-center gap-2 text-sm">
+            <span className="text-green-600">+{totalAdditions}</span>
+            <span className="text-red-600">-{totalDeletions}</span>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <Button variant="ghost" size="sm" onClick={expandAll}>
+            Expand All
+          </Button>
+          <Button variant="ghost" size="sm" onClick={collapseAll}>
+            Collapse All
+          </Button>
+        </div>
+      </div>
+
+      {/* File list */}
+      <div className="space-y-2">
+        {files.map((file) => (
+          <FileChangeItemWithComments
+            key={file.path}
+            file={file}
+            isExpanded={expandedFiles.has(file.path)}
+            onToggle={() => toggleFile(file.path)}
+            comments={comments}
+            onAddComment={onAddComment}
+            onRemoveComment={onRemoveComment}
+            enableComments={enableComments}
+          />
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function FileChangeItemWithComments({
+  file,
+  isExpanded,
+  onToggle,
+  comments,
+  onAddComment,
+  onRemoveComment,
+  enableComments,
+}: {
+  file: FileChange
+  isExpanded: boolean
+  onToggle: () => void
+  comments: DiffLineComment[]
+  onAddComment?: (comment: Omit<DiffLineComment, 'id' | 'createdAt'>) => void
+  onRemoveComment?: (commentId: string) => void
+  enableComments: boolean
+}) {
+  const status = statusConfig[file.status]
+  const StatusIcon = status.icon
+
+  return (
+    <Collapsible open={isExpanded} onOpenChange={onToggle}>
+      <div className="rounded-lg border">
+        {/* File header */}
+        <CollapsibleTrigger asChild>
+          <Button
+            variant="ghost"
+            className="flex h-auto w-full items-center justify-between px-3 py-2 hover:bg-muted/50"
+          >
+            <div className="flex items-center gap-2">
+              {isExpanded ? (
+                <CaretDownIcon className="h-4 w-4 text-muted-foreground" />
+              ) : (
+                <CaretRightIcon className="h-4 w-4 text-muted-foreground" />
+              )}
+              <StatusIcon className={cn('h-4 w-4', status.iconClassName)} />
+              <span className="font-mono text-sm">
+                {file.status === 'renamed' && file.oldPath
+                  ? `${file.oldPath} → ${file.path}`
+                  : file.path}
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
+              {file.additions > 0 && (
+                <span className="text-sm text-green-600">+{file.additions}</span>
+              )}
+              {file.deletions > 0 && (
+                <span className="text-sm text-red-600">-{file.deletions}</span>
+              )}
+              <Badge variant="secondary" className={cn('text-xs', status.className)}>
+                {status.label}
+              </Badge>
+            </div>
+          </Button>
+        </CollapsibleTrigger>
+
+        {/* Diff content with comments */}
+        <CollapsibleContent>
+          <div className="border-t">
+            <DiffViewer
+              diff={file.diff}
+              language={file.language}
+              comments={comments}
+              onAddComment={onAddComment}
+              onRemoveComment={onRemoveComment}
+              enableComments={enableComments}
+              className="rounded-none border-0"
+            />
+          </div>
+        </CollapsibleContent>
+      </div>
+    </Collapsible>
+  )
 }

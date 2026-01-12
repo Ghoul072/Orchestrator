@@ -11,6 +11,10 @@ import {
 import { cn } from '~/lib/utils'
 import { useHighlighter, getLanguageFromPath, type HighlightedLine } from '~/lib/use-highlighter'
 import type { BundledLanguage } from 'shiki'
+import {
+  CommentIndicator,
+  type DiffLineComment,
+} from './diff-line-comments'
 
 interface DiffLine {
   type: 'context' | 'add' | 'remove' | 'header'
@@ -26,6 +30,10 @@ interface DiffViewerProps {
   language?: string
   viewMode?: 'unified' | 'split'
   onViewModeChange?: (mode: 'unified' | 'split') => void
+  comments?: DiffLineComment[]
+  onAddComment?: (comment: Omit<DiffLineComment, 'id' | 'createdAt'>) => void
+  onRemoveComment?: (commentId: string) => void
+  enableComments?: boolean
   className?: string
 }
 
@@ -35,6 +43,10 @@ export function DiffViewer({
   language,
   viewMode = 'unified',
   onViewModeChange,
+  comments = [],
+  onAddComment,
+  onRemoveComment,
+  enableComments = false,
   className,
 }: DiffViewerProps) {
   const [mode, setMode] = useState<'unified' | 'split'>(viewMode)
@@ -108,54 +120,96 @@ export function DiffViewer({
       {/* Diff content */}
       <ScrollArea className="max-h-[600px]">
         {mode === 'unified' ? (
-          <UnifiedView lines={lines} />
+          <UnifiedView
+            lines={lines}
+            comments={comments}
+            onAddComment={onAddComment}
+            onRemoveComment={onRemoveComment}
+            enableComments={enableComments}
+          />
         ) : (
-          <SplitView lines={lines} />
+          <SplitView
+            lines={lines}
+            comments={comments}
+            onAddComment={onAddComment}
+            onRemoveComment={onRemoveComment}
+            enableComments={enableComments}
+          />
         )}
       </ScrollArea>
     </div>
   )
 }
 
-function UnifiedView({ lines }: { lines: DiffLine[] }) {
+function UnifiedView({
+  lines,
+  comments,
+  onAddComment,
+  onRemoveComment,
+  enableComments,
+}: {
+  lines: DiffLine[]
+  comments: DiffLineComment[]
+  onAddComment?: (comment: Omit<DiffLineComment, 'id' | 'createdAt'>) => void
+  onRemoveComment?: (commentId: string) => void
+  enableComments: boolean
+}) {
   return (
     <div className="font-mono text-sm">
-      {lines.map((line, index) => (
-        <div
-          key={index}
-          className={cn(
-            'flex',
-            line.type === 'add' && 'bg-green-500/10',
-            line.type === 'remove' && 'bg-red-500/10',
-            line.type === 'header' && 'bg-muted/50 text-muted-foreground'
-          )}
-        >
-          {/* Line numbers */}
-          <div className="flex w-20 flex-shrink-0 select-none border-r text-muted-foreground">
-            <span className="w-10 px-2 text-right">
-              {line.oldLineNumber ?? ''}
-            </span>
-            <span className="w-10 px-2 text-right">
-              {line.newLineNumber ?? ''}
-            </span>
-          </div>
-
-          {/* Change indicator */}
-          <div className="w-6 flex-shrink-0 px-1 text-center">
-            {line.type === 'add' && (
-              <PlusIcon className="inline h-4 w-4 text-green-600" />
+      {lines.map((line, index) => {
+        const lineNumber = line.newLineNumber ?? line.oldLineNumber ?? 0
+        const canComment =
+          enableComments && onAddComment && line.type !== 'header' && lineNumber > 0
+        return (
+          <div
+            key={index}
+            className={cn(
+              'group flex',
+              line.type === 'add' && 'bg-green-500/10',
+              line.type === 'remove' && 'bg-red-500/10',
+              line.type === 'header' && 'bg-muted/50 text-muted-foreground'
             )}
-            {line.type === 'remove' && (
-              <MinusIcon className="inline h-4 w-4 text-red-600" />
-            )}
-          </div>
+          >
+            {/* Comment indicator */}
+            <div className="flex w-6 flex-shrink-0 items-center justify-center">
+              {canComment && onRemoveComment && (
+                <CommentIndicator
+                  lineNumber={lineNumber}
+                  lineType={line.type as 'add' | 'remove' | 'context'}
+                  comments={comments}
+                  onAddComment={onAddComment}
+                  onRemoveComment={onRemoveComment}
+                />
+              )}
+            </div>
 
-          {/* Content with syntax highlighting */}
-          <pre className="flex-1 whitespace-pre-wrap break-all px-2 py-0.5">
-            <HighlightedContent line={line} />
-          </pre>
-        </div>
-      ))}
+            {/* Line numbers */}
+            <div className="flex w-20 flex-shrink-0 select-none border-r text-muted-foreground">
+              <span className="w-10 px-2 text-right">
+                {line.oldLineNumber ?? ''}
+              </span>
+              <span className="w-10 px-2 text-right">
+                {line.newLineNumber ?? ''}
+              </span>
+            </div>
+
+            {/* Change indicator */}
+            <div className="w-6 flex-shrink-0 px-1 text-center">
+              {line.type === 'add' && (
+                <PlusIcon className="inline h-4 w-4 text-green-600" />
+              )}
+              {line.type === 'remove' && (
+                <MinusIcon className="inline h-4 w-4 text-red-600" />
+              )}
+            </div>
+
+            {/* Content with syntax highlighting */}
+            <pre className="flex-1 whitespace-pre-wrap break-all px-2 py-0.5">
+              <HighlightedContent line={line} />
+            </pre>
+          </div>
+        )
+      })}
     </div>
   )
 }
@@ -182,51 +236,103 @@ function HighlightedContent({ line }: { line: DiffLine }) {
   )
 }
 
-function SplitView({ lines }: { lines: DiffLine[] }) {
+function SplitView({
+  lines,
+  comments,
+  onAddComment,
+  onRemoveComment,
+  enableComments,
+}: {
+  lines: DiffLine[]
+  comments: DiffLineComment[]
+  onAddComment?: (comment: Omit<DiffLineComment, 'id' | 'createdAt'>) => void
+  onRemoveComment?: (commentId: string) => void
+  enableComments: boolean
+}) {
   const { left, right } = splitLines(lines)
 
   return (
     <div className="flex font-mono text-sm">
       {/* Left side (old) */}
       <div className="w-1/2 border-r">
-        {left.map((line, index) => (
-          <div
-            key={index}
-            className={cn(
-              'flex',
-              line?.type === 'remove' && 'bg-red-500/10',
-              line?.type === 'header' && 'bg-muted/50 text-muted-foreground'
-            )}
-          >
-            <span className="w-10 flex-shrink-0 select-none border-r px-2 text-right text-muted-foreground">
-              {line?.oldLineNumber ?? ''}
-            </span>
-            <pre className="flex-1 whitespace-pre-wrap break-all px-2 py-0.5">
-              {line ? <HighlightedContent line={line} /> : ''}
-            </pre>
-          </div>
-        ))}
+        {left.map((line, index) => {
+          const lineNumber = line?.oldLineNumber ?? 0
+          const canComment =
+            enableComments &&
+            onAddComment &&
+            line?.type === 'remove' &&
+            lineNumber > 0
+          return (
+            <div
+              key={index}
+              className={cn(
+                'group flex',
+                line?.type === 'remove' && 'bg-red-500/10',
+                line?.type === 'header' && 'bg-muted/50 text-muted-foreground'
+              )}
+            >
+              {/* Comment indicator */}
+              <div className="flex w-6 flex-shrink-0 items-center justify-center">
+                {canComment && onRemoveComment && (
+                  <CommentIndicator
+                    lineNumber={lineNumber}
+                    lineType="remove"
+                    comments={comments}
+                    onAddComment={onAddComment}
+                    onRemoveComment={onRemoveComment}
+                  />
+                )}
+              </div>
+              <span className="w-10 flex-shrink-0 select-none border-r px-2 text-right text-muted-foreground">
+                {line?.oldLineNumber ?? ''}
+              </span>
+              <pre className="flex-1 whitespace-pre-wrap break-all px-2 py-0.5">
+                {line ? <HighlightedContent line={line} /> : ''}
+              </pre>
+            </div>
+          )
+        })}
       </div>
 
       {/* Right side (new) */}
       <div className="w-1/2">
-        {right.map((line, index) => (
-          <div
-            key={index}
-            className={cn(
-              'flex',
-              line?.type === 'add' && 'bg-green-500/10',
-              line?.type === 'header' && 'bg-muted/50 text-muted-foreground'
-            )}
-          >
-            <span className="w-10 flex-shrink-0 select-none border-r px-2 text-right text-muted-foreground">
-              {line?.newLineNumber ?? ''}
-            </span>
-            <pre className="flex-1 whitespace-pre-wrap break-all px-2 py-0.5">
-              {line ? <HighlightedContent line={line} /> : ''}
-            </pre>
-          </div>
-        ))}
+        {right.map((line, index) => {
+          const lineNumber = line?.newLineNumber ?? 0
+          const canComment =
+            enableComments &&
+            onAddComment &&
+            line?.type === 'add' &&
+            lineNumber > 0
+          return (
+            <div
+              key={index}
+              className={cn(
+                'group flex',
+                line?.type === 'add' && 'bg-green-500/10',
+                line?.type === 'header' && 'bg-muted/50 text-muted-foreground'
+              )}
+            >
+              {/* Comment indicator */}
+              <div className="flex w-6 flex-shrink-0 items-center justify-center">
+                {canComment && onRemoveComment && (
+                  <CommentIndicator
+                    lineNumber={lineNumber}
+                    lineType="add"
+                    comments={comments}
+                    onAddComment={onAddComment}
+                    onRemoveComment={onRemoveComment}
+                  />
+                )}
+              </div>
+              <span className="w-10 flex-shrink-0 select-none border-r px-2 text-right text-muted-foreground">
+                {line?.newLineNumber ?? ''}
+              </span>
+              <pre className="flex-1 whitespace-pre-wrap break-all px-2 py-0.5">
+                {line ? <HighlightedContent line={line} /> : ''}
+              </pre>
+            </div>
+          )
+        })}
       </div>
     </div>
   )

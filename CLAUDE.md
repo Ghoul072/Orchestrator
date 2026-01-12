@@ -641,6 +641,25 @@ bun test src/server/db/__tests__/projects.test.ts
 - Test files named `*.test.ts` or `*.test.tsx`
 - Fixtures and mocks in `__tests__/__fixtures__/`
 
+### Browser Flow Testing (Claude Code)
+
+**IMPORTANT**: UI flow testing should be done via browser integration using Claude's MCP browser tools. When implementing or fixing UI features, Claude should:
+
+1. **Start the dev server** - Run `bun run dev` to start both web app (port 3000) and WebSocket server (port 3001)
+2. **Open the app in browser** - Navigate to `http://localhost:3000`
+3. **Test the specific flow** - Interact with the UI to verify the feature works as expected
+4. **Screenshot verification** - Take screenshots to confirm visual changes
+5. **Fix any issues** - If something doesn't work, fix it and re-test
+
+**Flows to test after UI changes:**
+- Task creation with auto-assign agent option
+- Kanban board drag-and-drop between columns
+- Task editor dialog (all fields, especially rich text editor)
+- Chat panel connection and message display
+- Project creation with task generation option
+
+This ensures features actually work in the browser, not just pass unit tests.
+
 ## Telegram Notifications (Development Updates)
 
 **Purpose**: Telegram notifications are for **Claude (the developer agent)** to send progress updates to the user during development sessions. This is NOT an in-app feature for end users.

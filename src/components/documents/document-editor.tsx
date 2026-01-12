@@ -32,7 +32,9 @@ import {
   UsersThreeIcon,
   ChartBarIcon,
   CalendarIcon,
+  LightningIcon,
 } from '@phosphor-icons/react'
+import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/card'
 import { cn } from '~/lib/utils'
 
 type DocumentType = 'note' | 'diagram' | 'upload'
@@ -53,9 +55,11 @@ interface DocumentEditorProps {
   onDelete?: () => void
   onLinkTask?: () => void
   onLinkMeeting?: () => void
+  onGenerateTasks?: () => void
   linkedTaskTitle?: string
   linkedMeetingTitle?: string
   isLoading?: boolean
+  isGenerating?: boolean
   className?: string
 }
 
@@ -73,9 +77,11 @@ export function DocumentEditor({
   onDelete,
   onLinkTask,
   onLinkMeeting,
+  onGenerateTasks,
   linkedTaskTitle,
   linkedMeetingTitle,
   isLoading = false,
+  isGenerating = false,
   className,
 }: DocumentEditorProps) {
   const [title, setTitle] = useState(initialData?.title ?? '')
@@ -275,6 +281,31 @@ export function DocumentEditor({
           </div>
         )}
       </div>
+
+      {/* Generate Tasks action */}
+      {onGenerateTasks && type !== 'upload' && content.trim() && (
+        <div className="border-t px-4 py-3">
+          <Card className="bg-muted/30">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium">
+                Generate Tasks
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="flex items-center gap-4">
+              <p className="flex-1 text-sm text-muted-foreground">
+                Create tasks based on requirements, action items, or specifications from this document.
+              </p>
+              <Button
+                onClick={onGenerateTasks}
+                disabled={isLoading || isGenerating}
+              >
+                <LightningIcon className="mr-2 h-4 w-4" weight="fill" />
+                {isGenerating ? 'Generating...' : 'Generate Tasks'}
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+      )}
     </div>
   )
 }

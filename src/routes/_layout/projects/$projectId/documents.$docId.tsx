@@ -2,11 +2,16 @@ import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { documentQueryOptions } from '~/queries/documents'
 import { projectQueryOptions } from '~/queries/projects'
-import { updateDocument, deleteDocument } from '~/server/functions/documents'
+import {
+  updateDocument,
+  deleteDocument,
+  generateTasksFromDocument,
+} from '~/server/functions/documents'
 import { DocumentEditor } from '~/components/documents/document-editor'
 import { Skeleton } from '~/components/ui/skeleton'
 import { Button } from '~/components/ui/button'
 import { ArrowLeftIcon } from '@phosphor-icons/react'
+import { toast } from 'sonner'
 
 interface DocumentData {
   id: string
@@ -67,6 +72,24 @@ function DocumentDetailPage() {
     },
   })
 
+  const generateTasksMutation = useMutation({
+    mutationFn: () =>
+      generateTasksFromDocument({
+        data: {
+          documentId: docId,
+          projectId,
+        },
+      }),
+    onSuccess: (result) => {
+      queryClient.invalidateQueries({ queryKey: ['tasks', projectId] })
+      queryClient.invalidateQueries({ queryKey: ['document', docId] })
+      toast.success(`Generated ${result.tasksCreated} task${result.tasksCreated !== 1 ? 's' : ''} from document`)
+    },
+    onError: (error: Error) => {
+      toast.error(`Failed to generate tasks: ${error.message}`)
+    },
+  })
+
   const handleBack = () => {
     void navigate({
       to: '/projects/$projectId/documents' as const,
@@ -123,6 +146,7 @@ function DocumentDetailPage() {
         }}
         onSave={(data) => updateMutation.mutate(data)}
         onDelete={() => deleteMutation.mutate()}
+        onGenerateTasks={() => generateTasksMutation.mutate()}
         onLinkTask={() => {
           // TODO: Implement task linking dialog
           console.log('Link task to document')
@@ -132,6 +156,7 @@ function DocumentDetailPage() {
           console.log('Link meeting to document')
         }}
         isLoading={updateMutation.isPending || deleteMutation.isPending}
+        isGenerating={generateTasksMutation.isPending}
         className="flex-1"
       />
     </div>

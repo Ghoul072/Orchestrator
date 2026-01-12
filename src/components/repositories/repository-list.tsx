@@ -190,7 +190,7 @@ function RepositoryCard({
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <Badge className={cn('gap-1', status.className)}>
+            <Badge variant="status" className={cn('gap-1', status.className)}>
               <StatusIcon
                 className={cn('h-3 w-3', isProcessing && 'animate-spin')}
               />

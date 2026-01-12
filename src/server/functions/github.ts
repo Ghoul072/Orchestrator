@@ -24,6 +24,16 @@ const UpdateRepositorySyncSchema = z.object({
   enabled: z.boolean(),
 })
 
+const CreatePullRequestSchema = z.object({
+  repositoryId: z.string().uuid(),
+  title: z.string().min(1),
+  body: z.string().optional(),
+  head: z.string().min(1), // Branch with changes
+  base: z.string().default('main'), // Target branch
+  taskIds: z.array(z.string().uuid()).optional(), // Tasks to link (for "Closes #X")
+  draft: z.boolean().default(false),
+})
+
 // =============================================================================
 // GITHUB API HELPERS
 // =============================================================================
@@ -44,6 +54,21 @@ interface GitHubCreateIssueResponse {
   id: number
   number: number
   html_url: string
+}
+
+interface GitHubPullRequest {
+  id: number
+  number: number
+  title: string
+  body: string | null
+  state: 'open' | 'closed' | 'merged'
+  html_url: string
+  head: { ref: string; sha: string }
+  base: { ref: string }
+  draft: boolean
+  merged: boolean
+  created_at: string
+  updated_at: string
 }
 
 function getGitHubToken(): string | null {
@@ -379,4 +404,127 @@ export const pushTaskToGitHub = createServerFn({ method: 'POST' })
     })
 
     return { issue, action: 'created' }
+  })
+
+/**
+ * Create a Pull Request with optional issue linking
+ * If taskIds are provided, the PR body will include "Closes #X" references
+ */
+export const createPullRequest = createServerFn({ method: 'POST' })
+  .inputValidator(CreatePullRequestSchema)
+  .handler(async ({ data }) => {
+    const token = getGitHubToken()
+    if (!token) {
+      throw new Error('GitHub token not configured')
+    }
+
+    const repository = await reposDb.getRepositoryById(data.repositoryId)
+    if (!repository) {
+      throw new Error('Repository not found')
+    }
+
+    const parsed = parseGitHubRepo(repository.url)
+    if (!parsed) {
+      throw new Error('Repository URL is not a valid GitHub URL')
+    }
+
+    const { owner, repo } = parsed
+
+    // Build PR body with issue references
+    let body = data.body || ''
+
+    // If taskIds are provided, add "Closes #X" references for tasks with GitHub issues
+    if (data.taskIds && data.taskIds.length > 0) {
+      const tasks = await Promise.all(
+        data.taskIds.map((id) => tasksDb.getTaskById(id))
+      )
+
+      const issueReferences: string[] = []
+      for (const task of tasks) {
+        if (task?.githubIssueId) {
+          issueReferences.push(`Closes #${task.githubIssueId}`)
+        }
+      }
+
+      if (issueReferences.length > 0) {
+        body += body ? '\n\n' : ''
+        body += '## Linked Issues\n'
+        body += issueReferences.join('\n')
+      }
+    }
+
+    const pr = await githubFetch<GitHubPullRequest>(
+      `/repos/${owner}/${repo}/pulls`,
+      token,
+      {
+        method: 'POST',
+        body: JSON.stringify({
+          title: data.title,
+          body,
+          head: data.head,
+          base: data.base,
+          draft: data.draft,
+        }),
+      }
+    )
+
+    return {
+      id: pr.id,
+      number: pr.number,
+      html_url: pr.html_url,
+      title: pr.title,
+      state: pr.state,
+      draft: pr.draft,
+    }
+  })
+
+/**
+ * Update a task's status based on its GitHub issue state
+ * This enables bidirectional sync - when an issue is closed on GitHub,
+ * the task can be marked as completed
+ */
+export const syncTaskFromGitHub = createServerFn({ method: 'POST' })
+  .inputValidator(PushTaskSchema)
+  .handler(async ({ data }) => {
+    const task = await tasksDb.getTaskById(data.taskId)
+    if (!task) {
+      throw new Error('Task not found')
+    }
+
+    if (!task.githubIssueId || !task.repositoryId) {
+      throw new Error('Task is not linked to a GitHub issue')
+    }
+
+    const token = getGitHubToken()
+    if (!token) {
+      throw new Error('GitHub token not configured')
+    }
+
+    const repository = await reposDb.getRepositoryById(task.repositoryId)
+    if (!repository) {
+      throw new Error('Repository not found')
+    }
+
+    const parsed = parseGitHubRepo(repository.url)
+    if (!parsed) {
+      throw new Error('Repository URL is not a valid GitHub URL')
+    }
+
+    const { owner, repo } = parsed
+
+    const issue = await githubFetch<GitHubIssue>(
+      `/repos/${owner}/${repo}/issues/${task.githubIssueId}`,
+      token
+    )
+
+    const newStatus = issueStateToTaskStatus(issue.state)
+    if (task.status !== newStatus) {
+      await tasksDb.updateTask(data.taskId, {
+        status: newStatus,
+        ...(newStatus === 'completed' ? { completedAt: new Date() } : {}),
+      })
+      return { synced: true, oldStatus: task.status, newStatus }
+    }
+
+    return { synced: false, status: task.status }
   })

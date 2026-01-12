@@ -18,6 +18,8 @@ const badgeVariants = cva(
           'border-transparent bg-green-500/15 text-green-600 dark:text-green-400',
         warning:
           'border-transparent bg-yellow-500/15 text-yellow-600 dark:text-yellow-400',
+        // Status badge - no hover effect to prevent ugly flash with custom colors
+        status: 'border-transparent',
       },
     },
     defaultVariants: {

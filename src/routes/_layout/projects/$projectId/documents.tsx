@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { createFileRoute, useNavigate } from '@tanstack/react-router'
+import { createFileRoute, useNavigate, Outlet, useMatch } from '@tanstack/react-router'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { PlusIcon, FileTextIcon, ChartLineUpIcon, ImageIcon, UploadIcon } from '@phosphor-icons/react'
 import { documentsQueryOptions } from '~/queries/documents'
@@ -41,6 +41,7 @@ function DocumentsPage() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
 
+  // All hooks must be called before any conditional returns
   const [createDialogOpen, setCreateDialogOpen] = useState(false)
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false)
   const [newDocTitle, setNewDocTitle] = useState('')
@@ -74,6 +75,17 @@ function DocumentsPage() {
       })
     },
   })
+
+  // Check if we're on a child route (document detail page)
+  const childMatch = useMatch({
+    from: '/_layout/projects/$projectId/documents/$docId',
+    shouldThrow: false,
+  })
+
+  // If there's a child route match, render the Outlet (document detail page)
+  if (childMatch) {
+    return <Outlet />
+  }
 
   const handleCreateDocument = () => {
     if (!newDocTitle.trim()) return

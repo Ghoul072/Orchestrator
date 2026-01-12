@@ -8,6 +8,17 @@ import {
   CollapsibleTrigger,
 } from '~/components/ui/collapsible'
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '~/components/ui/alert-dialog'
+import {
   TrashIcon,
   GitBranchIcon,
   WarningCircleIcon,
@@ -118,7 +129,7 @@ export function ApprovalCard({
   const StatusIcon = status.icon
 
   // Comment management for adding new comments
-  const { comments, addComment, removeComment, clearComments, hasChangeRequests, selectionStart, startSelection } =
+  const { comments, addComment, removeComment, clearComments, selectionStart, startSelection } =
     useDiffLineComments()
 
   // Convert stored change requests to DiffLineComment format
@@ -244,36 +255,65 @@ export function ApprovalCard({
 
       {approval.status === 'pending' && (onApprove || onReject || onRequestChanges) && (
         <CardFooter className="flex-col gap-2 pt-2">
+          {/* Show pending comments count when there are comments */}
+          {enableComments && comments.length > 0 && (
+            <div className="w-full rounded-md border border-orange-500/30 bg-orange-500/10 px-3 py-2 text-sm">
+              <span className="font-medium text-orange-600">
+                {comments.length} pending comment{comments.length !== 1 ? 's' : ''}
+              </span>
+              <span className="text-muted-foreground"> - Click "Request Changes" to submit your review</span>
+            </div>
+          )}
           <div className="flex w-full gap-2">
             {onReject && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={onReject}
-                disabled={isLoading}
-                className="flex-1"
-              >
-                <XCircleIcon className="mr-2 h-4 w-4" />
-                Reject
-              </Button>
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={isLoading}
+                    className="flex-1"
+                  >
+                    <XCircleIcon className="mr-2 h-4 w-4" />
+                    Reject
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Reject this approval?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      This will permanently reject the proposed changes. The agent will need to start over with a new approach.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction
+                      onClick={onReject}
+                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                    >
+                      Reject
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
             )}
-            {onRequestChanges && enableComments && hasChangeRequests && (
+            {onRequestChanges && enableComments && comments.length > 0 && (
               <Button
                 variant="outline"
                 size="sm"
                 onClick={handleRequestChanges}
-                disabled={isLoading || comments.length === 0}
+                disabled={isLoading}
                 className="flex-1 border-orange-500/50 text-orange-600 hover:bg-orange-500/10"
               >
                 <ChatCircleIcon className="mr-2 h-4 w-4" />
-                Request Changes ({comments.filter((c) => c.isChangeRequest).length})
+                Request Changes ({comments.length})
               </Button>
             )}
             {onApprove && (
               <Button
                 size="sm"
                 onClick={onApprove}
-                disabled={isLoading}
+                disabled={isLoading || (enableComments && comments.length > 0)}
                 className="flex-1"
               >
                 <CheckCircleIcon className="mr-2 h-4 w-4" />

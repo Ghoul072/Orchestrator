@@ -186,13 +186,18 @@ export const updateTask = createServerFn({ method: 'POST' })
       throw new Error('Task not found')
     }
 
-    // If task was completed, check for tasks to auto-start
+    // If task was completed, process dependent tasks
     if (rest.status === 'completed') {
       const tasksToUnblock = await tasksDb.getTasksToUnblock(id)
       for (const unblockedTask of tasksToUnblock) {
-        if (unblockedTask.autoStartWhenUnblocked) {
-          const stillHasBlockers = await tasksDb.hasUnresolvedBlockers(unblockedTask.id)
-          if (!stillHasBlockers) {
+        const stillHasBlockers = await tasksDb.hasUnresolvedBlockers(unblockedTask.id)
+        if (!stillHasBlockers) {
+          if (unblockedTask.status === 'blocked') {
+            // Automatically unblock - change from 'blocked' to 'pending' or 'in_progress'
+            const newStatus = unblockedTask.autoStartWhenUnblocked ? 'in_progress' : 'pending'
+            await tasksDb.updateTask(unblockedTask.id, { status: newStatus })
+          } else if (unblockedTask.autoStartWhenUnblocked && unblockedTask.status === 'pending') {
+            // Auto-start pending tasks if flag is set
             await tasksDb.updateTask(unblockedTask.id, { status: 'in_progress' })
           }
         }

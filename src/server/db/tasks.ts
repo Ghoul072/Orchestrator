@@ -375,3 +375,32 @@ export async function getTasksToUnblock(taskId: string): Promise<Task[]> {
 
   return result.map((r) => r.task)
 }
+
+/**
+ * Process unblocking when a task is completed
+ * Returns list of tasks that were unblocked (status changed from 'blocked' to 'pending')
+ */
+export async function processTaskCompletion(completedTaskId: string): Promise<Task[]> {
+  const unblocked: Task[] = []
+
+  // Get all tasks that this task was blocking
+  const tasksToCheck = await getTasksToUnblock(completedTaskId)
+
+  for (const task of tasksToCheck) {
+    // Only process tasks that are currently blocked
+    if (task.status !== 'blocked') continue
+
+    // Check if this task has any other unresolved blockers
+    const hasOtherBlockers = await hasUnresolvedBlockers(task.id)
+
+    if (!hasOtherBlockers) {
+      // No more blockers - unblock the task
+      const updated = await updateTask(task.id, { status: 'pending' })
+      if (updated) {
+        unblocked.push(updated)
+      }
+    }
+  }
+
+  return unblocked
+}

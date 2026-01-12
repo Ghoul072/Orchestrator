@@ -25,6 +25,7 @@ const ListApprovalsSchema = z.object({
 const ChangeRequestSchema = z.object({
   id: z.string(),
   lineNumber: z.number(),
+  endLineNumber: z.number().optional(), // For range/block comments
   lineType: z.enum(['add', 'remove', 'context']),
   content: z.string(),
   isChangeRequest: z.boolean(),

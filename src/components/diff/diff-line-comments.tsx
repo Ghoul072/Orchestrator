@@ -20,6 +20,7 @@ import { cn } from '~/lib/utils'
 export interface DiffLineComment {
   id: string
   lineNumber: number
+  endLineNumber?: number // For range comments (blocks)
   lineType: 'add' | 'remove' | 'context'
   content: string
   isChangeRequest: boolean
@@ -28,6 +29,7 @@ export interface DiffLineComment {
 
 export function useDiffLineComments() {
   const [comments, setComments] = useState<DiffLineComment[]>([])
+  const [selectionStart, setSelectionStart] = useState<number | null>(null)
 
   const addComment = useCallback(
     (comment: Omit<DiffLineComment, 'id' | 'createdAt'>) => {
@@ -39,6 +41,8 @@ export function useDiffLineComments() {
           createdAt: new Date(),
         },
       ])
+      // Clear selection after adding
+      setSelectionStart(null)
     },
     []
   )
@@ -49,6 +53,20 @@ export function useDiffLineComments() {
 
   const clearComments = useCallback(() => {
     setComments([])
+    setSelectionStart(null)
+  }, [])
+
+  const startSelection = useCallback((lineNumber: number) => {
+    if (lineNumber === -1) {
+      // Clear selection signal
+      setSelectionStart(null)
+    } else {
+      setSelectionStart(lineNumber)
+    }
+  }, [])
+
+  const clearSelection = useCallback(() => {
+    setSelectionStart(null)
   }, [])
 
   const hasChangeRequests = comments.some((c) => c.isChangeRequest)
@@ -59,6 +77,9 @@ export function useDiffLineComments() {
     removeComment,
     clearComments,
     hasChangeRequests,
+    selectionStart,
+    startSelection,
+    clearSelection,
   }
 }
 
@@ -69,6 +90,8 @@ export function CommentIndicator({
   onAddComment,
   onRemoveComment,
   readOnly = false,
+  selectionStart,
+  onStartSelection,
 }: {
   lineNumber: number
   lineType: 'add' | 'remove' | 'context'
@@ -76,35 +99,65 @@ export function CommentIndicator({
   onAddComment: (comment: Omit<DiffLineComment, 'id' | 'createdAt'>) => void
   onRemoveComment: (commentId: string) => void
   readOnly?: boolean
+  selectionStart?: number | null // For block selection
+  onStartSelection?: (lineNumber: number) => void // Start range selection
 }) {
   const [isOpen, setIsOpen] = useState(false)
   const [newComment, setNewComment] = useState('')
   const [isChangeRequest, setIsChangeRequest] = useState(false)
 
+  // Include comments that cover this line (single line or range)
   const lineComments = comments.filter(
-    (c) => c.lineNumber === lineNumber && c.lineType === lineType
+    (c) =>
+      c.lineType === lineType &&
+      c.lineNumber <= lineNumber &&
+      (c.endLineNumber ? c.endLineNumber >= lineNumber : c.lineNumber === lineNumber)
   )
+
+  // Calculate effective range for new comment
+  const effectiveStartLine = selectionStart && selectionStart < lineNumber ? selectionStart : lineNumber
+  const effectiveEndLine = selectionStart && selectionStart > lineNumber ? selectionStart : lineNumber
+  const isRangeSelection = selectionStart !== null && selectionStart !== undefined && selectionStart !== lineNumber
 
   const handleAddComment = () => {
     if (!newComment.trim()) return
     onAddComment({
-      lineNumber,
+      lineNumber: isRangeSelection ? effectiveStartLine : lineNumber,
+      endLineNumber: isRangeSelection ? effectiveEndLine : undefined,
       lineType,
       content: newComment.trim(),
       isChangeRequest,
     })
     setNewComment('')
     setIsChangeRequest(false)
+    // Clear selection after adding comment
+    if (onStartSelection) {
+      onStartSelection(-1) // Signal to clear selection
+    }
+  }
+
+  const handleClick = (e: React.MouseEvent) => {
+    if (e.shiftKey && onStartSelection && !readOnly) {
+      // Shift+click creates a range
+      setIsOpen(true)
+    } else if (!readOnly && onStartSelection) {
+      // Regular click starts a new selection
+      onStartSelection(lineNumber)
+    }
   }
 
   return (
     <Popover open={isOpen} onOpenChange={setIsOpen}>
       <PopoverTrigger asChild>
         <button
+          onClick={handleClick}
           className={cn(
             'flex h-5 w-5 items-center justify-center rounded',
             'opacity-0 transition-opacity group-hover:opacity-100',
             lineComments.length > 0 && 'opacity-100',
+            // Show as selected if in range
+            selectionStart === lineNumber && 'opacity-100 bg-purple-500/20 text-purple-600',
+            isRangeSelection && 'opacity-100 bg-purple-500/20 text-purple-600',
             lineComments.some((c) => c.isChangeRequest)
               ? 'bg-orange-500/20 text-orange-600'
               : lineComments.length > 0
@@ -114,6 +167,8 @@ export function CommentIndicator({
         >
           {lineComments.length > 0 ? (
             <span className="text-xs font-medium">{lineComments.length}</span>
+          ) : selectionStart === lineNumber ? (
+            <span className="text-xs font-bold">&#8594;</span>
           ) : (
             <PlusIcon className="h-3 w-3" />
           )}
@@ -121,6 +176,13 @@ export function CommentIndicator({
       </PopoverTrigger>
       <PopoverContent className="w-80 p-3" align="start">
         <div className="space-y-3">
+          {/* Range indicator */}
+          {isRangeSelection && (
+            <div className="rounded-md border border-purple-500/30 bg-purple-500/10 px-2 py-1 text-xs text-purple-600">
+              Block comment: lines {effectiveStartLine} - {effectiveEndLine}
+            </div>
+          )}
+
           {/* Existing comments */}
           {lineComments.length > 0 && (
             <ScrollArea className="max-h-40">
@@ -137,15 +199,25 @@ export function CommentIndicator({
                   >
                     <div className="flex items-start justify-between gap-2">
                       <div className="flex-1">
-                        {comment.isChangeRequest && (
-                          <Badge
-                            variant="secondary"
-                            className="mb-1 gap-1 bg-orange-500/20 text-orange-600 text-xs"
-                          >
-                            <WarningCircleIcon className="h-3 w-3" />
-                            Change Requested
-                          </Badge>
-                        )}
+                        <div className="mb-1 flex flex-wrap gap-1">
+                          {comment.endLineNumber && (
+                            <Badge
+                              variant="secondary"
+                              className="gap-1 bg-purple-500/20 text-purple-600 text-xs"
+                            >
+                              Lines {comment.lineNumber}-{comment.endLineNumber}
+                            </Badge>
+                          )}
+                          {comment.isChangeRequest && (
+                            <Badge
+                              variant="secondary"
+                              className="gap-1 bg-orange-500/20 text-orange-600 text-xs"
+                            >
+                              <WarningCircleIcon className="h-3 w-3" />
+                              Change Requested
+                            </Badge>
+                          )}
+                        </div>
                         <p className="text-sm">{comment.content}</p>
                       </div>
                       {!readOnly && (
@@ -169,7 +241,7 @@ export function CommentIndicator({
           {!readOnly && (
             <div className="space-y-2">
               <Textarea
-                placeholder="Add a comment..."
+                placeholder={isRangeSelection ? `Add comment for lines ${effectiveStartLine}-${effectiveEndLine}...` : 'Add a comment...'}
                 value={newComment}
                 onChange={(e) => setNewComment(e.target.value)}
                 className="min-h-[60px] resize-none text-sm"

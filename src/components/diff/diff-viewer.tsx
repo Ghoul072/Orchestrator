@@ -34,6 +34,8 @@ interface DiffViewerProps {
   onAddComment?: (comment: Omit<DiffLineComment, 'id' | 'createdAt'>) => void
   onRemoveComment?: (commentId: string) => void
   enableComments?: boolean
+  selectionStart?: number | null
+  onStartSelection?: (lineNumber: number) => void
   className?: string
 }
 
@@ -47,6 +49,8 @@ export function DiffViewer({
   onAddComment,
   onRemoveComment,
   enableComments = false,
+  selectionStart,
+  onStartSelection,
   className,
 }: DiffViewerProps) {
   const [mode, setMode] = useState<'unified' | 'split'>(viewMode)
@@ -126,6 +130,8 @@ export function DiffViewer({
             onAddComment={onAddComment}
             onRemoveComment={onRemoveComment}
             enableComments={enableComments}
+            selectionStart={selectionStart}
+            onStartSelection={onStartSelection}
           />
         ) : (
           <SplitView
@@ -134,6 +140,8 @@ export function DiffViewer({
             onAddComment={onAddComment}
             onRemoveComment={onRemoveComment}
             enableComments={enableComments}
+            selectionStart={selectionStart}
+            onStartSelection={onStartSelection}
           />
         )}
       </ScrollArea>
@@ -147,12 +155,16 @@ function UnifiedView({
   onAddComment,
   onRemoveComment,
   enableComments,
+  selectionStart,
+  onStartSelection,
 }: {
   lines: DiffLine[]
   comments: DiffLineComment[]
   onAddComment?: (comment: Omit<DiffLineComment, 'id' | 'createdAt'>) => void
   onRemoveComment?: (commentId: string) => void
   enableComments: boolean
+  selectionStart?: number | null
+  onStartSelection?: (lineNumber: number) => void
 }) {
   return (
     <div className="font-mono text-sm">
@@ -179,6 +191,8 @@ function UnifiedView({
                   comments={comments}
                   onAddComment={onAddComment}
                   onRemoveComment={onRemoveComment}
+                  selectionStart={selectionStart}
+                  onStartSelection={onStartSelection}
                 />
               )}
             </div>
@@ -242,12 +256,16 @@ function SplitView({
   onAddComment,
   onRemoveComment,
   enableComments,
+  selectionStart,
+  onStartSelection,
 }: {
   lines: DiffLine[]
   comments: DiffLineComment[]
   onAddComment?: (comment: Omit<DiffLineComment, 'id' | 'createdAt'>) => void
   onRemoveComment?: (commentId: string) => void
   enableComments: boolean
+  selectionStart?: number | null
+  onStartSelection?: (lineNumber: number) => void
 }) {
   const { left, right } = splitLines(lines)
 
@@ -280,6 +298,8 @@ function SplitView({
                     comments={comments}
                     onAddComment={onAddComment}
                     onRemoveComment={onRemoveComment}
+                    selectionStart={selectionStart}
+                    onStartSelection={onStartSelection}
                   />
                 )}
               </div>
@@ -321,6 +341,8 @@ function SplitView({
                     comments={comments}
                     onAddComment={onAddComment}
                     onRemoveComment={onRemoveComment}
+                    selectionStart={selectionStart}
+                    onStartSelection={onStartSelection}
                   />
                 )}
               </div>

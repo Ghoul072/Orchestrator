@@ -8,6 +8,7 @@ import type { DiffLineComment } from '~/components/diff/diff-line-comments'
 interface StoredChangeRequest {
   id: string
   lineNumber: number
+  endLineNumber?: number // For range/block comments
   lineType: 'add' | 'remove' | 'context'
   content: string
   isChangeRequest: boolean

@@ -297,6 +297,8 @@ interface FileChangesWithCommentsProps extends FileChangesProps {
   onAddComment?: (comment: Omit<DiffLineComment, 'id' | 'createdAt'>) => void
   onRemoveComment?: (commentId: string) => void
   enableComments?: boolean
+  selectionStart?: number | null
+  onStartSelection?: (lineNumber: number) => void
 }
 
 export function FileChangesWithComments({
@@ -306,6 +308,8 @@ export function FileChangesWithComments({
   onAddComment,
   onRemoveComment,
   enableComments = false,
+  selectionStart,
+  onStartSelection,
   className,
 }: FileChangesWithCommentsProps) {
   const [expandedFiles, setExpandedFiles] = useState<Set<string>>(
@@ -370,6 +374,8 @@ export function FileChangesWithComments({
             onAddComment={onAddComment}
             onRemoveComment={onRemoveComment}
             enableComments={enableComments}
+            selectionStart={selectionStart}
+            onStartSelection={onStartSelection}
           />
         ))}
       </div>
@@ -385,6 +391,8 @@ function FileChangeItemWithComments({
   onAddComment,
   onRemoveComment,
   enableComments,
+  selectionStart,
+  onStartSelection,
 }: {
   file: FileChange
   isExpanded: boolean
@@ -393,6 +401,8 @@ function FileChangeItemWithComments({
   onAddComment?: (comment: Omit<DiffLineComment, 'id' | 'createdAt'>) => void
   onRemoveComment?: (commentId: string) => void
   enableComments: boolean
+  selectionStart?: number | null
+  onStartSelection?: (lineNumber: number) => void
 }) {
   const status = statusConfig[file.status]
   const StatusIcon = status.icon
@@ -443,6 +453,8 @@ function FileChangeItemWithComments({
               onAddComment={onAddComment}
               onRemoveComment={onRemoveComment}
               enableComments={enableComments}
+              selectionStart={selectionStart}
+              onStartSelection={onStartSelection}
               className="rounded-none border-0"
             />
           </div>

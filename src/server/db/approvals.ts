@@ -128,6 +128,7 @@ export async function rejectApproval(id: string): Promise<Approval | undefined> 
 export interface ChangeRequest {
   id: string
   lineNumber: number
+  endLineNumber?: number // For range/block comments
   lineType: 'add' | 'remove' | 'context'
   content: string
   isChangeRequest: boolean

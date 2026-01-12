@@ -497,6 +497,7 @@ export const approvals = pgTable(
     changeRequests: jsonb('change_requests').$type<{
       id: string
       lineNumber: number
+      endLineNumber?: number // For range/block comments
       lineType: 'add' | 'remove' | 'context'
       content: string
       isChangeRequest: boolean

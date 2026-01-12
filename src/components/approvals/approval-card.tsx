@@ -32,6 +32,7 @@ import {
 interface StoredChangeRequest {
   id: string
   lineNumber: number
+  endLineNumber?: number // For range/block comments
   lineType: 'add' | 'remove' | 'context'
   content: string
   isChangeRequest: boolean
@@ -117,7 +118,7 @@ export function ApprovalCard({
   const StatusIcon = status.icon
 
   // Comment management for adding new comments
-  const { comments, addComment, removeComment, clearComments, hasChangeRequests } =
+  const { comments, addComment, removeComment, clearComments, hasChangeRequests, selectionStart, startSelection } =
     useDiffLineComments()
 
   // Convert stored change requests to DiffLineComment format
@@ -231,6 +232,8 @@ export function ApprovalCard({
                     onAddComment={enableComments && approval.status === 'pending' ? addComment : undefined}
                     onRemoveComment={enableComments && approval.status === 'pending' ? removeComment : undefined}
                     enableComments={enableComments && approval.status === 'pending'}
+                    selectionStart={enableComments && approval.status === 'pending' ? selectionStart : null}
+                    onStartSelection={enableComments && approval.status === 'pending' ? startSelection : undefined}
                   />
                 </div>
               </div>

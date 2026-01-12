@@ -76,14 +76,33 @@ export async function createApproval(data: NewApproval): Promise<Approval> {
 /**
  * Approve an approval request
  */
-export async function approveApproval(id: string): Promise<Approval | undefined> {
+export async function approveApproval(
+  id: string,
+  githubPrUrl?: string
+): Promise<Approval | undefined> {
   const [result] = await db
     .update(approvals)
     .set({
       status: 'approved',
       resolvedAt: new Date(),
+      ...(githubPrUrl && { githubPrUrl }),
     })
     .where(and(eq(approvals.id, id), eq(approvals.status, 'pending')))
+    .returning()
+  return result
+}
+
+/**
+ * Update PR URL for an approval
+ */
+export async function updateApprovalPrUrl(
+  id: string,
+  githubPrUrl: string
+): Promise<Approval | undefined> {
+  const [result] = await db
+    .update(approvals)
+    .set({ githubPrUrl })
+    .where(eq(approvals.id, id))
     .returning()
   return result
 }

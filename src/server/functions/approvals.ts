@@ -10,6 +10,11 @@ const ApprovalIdSchema = z.object({
   id: z.string().uuid(),
 })
 
+const ApproveApprovalSchema = z.object({
+  id: z.string().uuid(),
+  githubPrUrl: z.string().url().optional(),
+})
+
 const ListApprovalsSchema = z.object({
   taskId: z.string().uuid().optional(),
   status: z.enum(['pending', 'approved', 'rejected']).optional(),
@@ -86,9 +91,9 @@ export const createApproval = createServerFn({ method: 'POST' })
  * Approve an approval request
  */
 export const approveApproval = createServerFn({ method: 'POST' })
-  .inputValidator(ApprovalIdSchema)
+  .inputValidator(ApproveApprovalSchema)
   .handler(async ({ data }) => {
-    const approval = await approvalsDb.approveApproval(data.id)
+    const approval = await approvalsDb.approveApproval(data.id, data.githubPrUrl)
     if (!approval) {
       throw new Error('Approval not found or already resolved')
     }

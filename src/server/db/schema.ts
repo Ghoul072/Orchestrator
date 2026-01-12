@@ -493,6 +493,7 @@ export const approvals = pgTable(
     diffContent: text('diff_content'),
     filesAffected: jsonb('files_affected').$type<string[]>(),
     status: approvalStatusEnum('status').default('pending').notNull(),
+    githubPrUrl: text('github_pr_url'), // URL to the PR created after approval
     resolvedAt: timestamp('resolved_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   },

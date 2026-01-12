@@ -17,6 +17,8 @@ import {
   CaretDownIcon,
   CaretRightIcon,
   ChatCircleIcon,
+  GitPullRequestIcon,
+  ArrowSquareOutIcon,
 } from '@phosphor-icons/react'
 import { cn } from '~/lib/utils'
 import { FileChangesWithComments, parseGitDiff } from '~/components/diff/file-changes'
@@ -34,6 +36,7 @@ interface ApprovalCardProps {
     diffContent?: string | null
     filesAffected?: string[] | null
     status: 'pending' | 'approved' | 'rejected'
+    githubPrUrl?: string | null
     createdAt: Date | string
   }
   onApprove?: () => void
@@ -144,6 +147,22 @@ export function ApprovalCard({
                 </Badge>
               ))}
             </div>
+          </div>
+        )}
+
+        {/* Show PR link for approved requests */}
+        {approval.status === 'approved' && approval.githubPrUrl && (
+          <div className="mb-2">
+            <a
+              href={approval.githubPrUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 rounded-md bg-green-500/10 px-3 py-2 text-sm font-medium text-green-600 transition-colors hover:bg-green-500/20"
+            >
+              <GitPullRequestIcon className="h-4 w-4" />
+              View Pull Request
+              <ArrowSquareOutIcon className="h-3 w-3" />
+            </a>
           </div>
         )}
 

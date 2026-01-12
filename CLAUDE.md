@@ -168,7 +168,8 @@ scripts/
 - [x] Subtask management
 - [x] Task status workflow (pending → in_progress → completed)
 - [x] Priority and effort estimation
-- [x] Task dependencies
+- [x] Task dependencies (blocks/blocked_by/relates_to)
+- [x] Task dependencies UI component
 - [x] Task filtering and search
 
 ### Phase 3: Repository Integration
@@ -185,8 +186,10 @@ scripts/
 - [x] Tool use display in chat (collapsible steps)
 - [x] Save agent responses as task updates
 - [x] Task context in agent system prompt
-- [ ] Task assignment to agents (full workflow)
-- [ ] Progress streaming visualization
+- [x] Task assignment to agents (full workflow)
+- [x] Progress streaming visualization
+- [x] Task agent queue processor
+- [x] Plan generation and approval workflow
 
 ### Phase 5: MCP & ACP Integration
 - [x] MCP server exposing Orchestrator tools
@@ -210,11 +213,13 @@ scripts/
 - [x] Documents/notes with Mermaid graph support
 - [x] File uploads for images, diagrams, attachments
 - [x] Document linking to tasks
+- [x] Document → Task generation (AI extracts tasks from documents)
 
 ### Phase 8: Git Diff & Approvals
 - [x] Git diff viewer component (side-by-side and unified)
 - [x] File changes list with expandable diffs
-- [ ] Syntax highlighting in diffs
+- [x] Syntax highlighting in diffs (Shiki highlighter)
+- [x] Line commenting and change requests on diffs
 - [x] Approval workflow for destructive agent actions
 - [x] Approve/reject UI with pending count badge
 - [x] Approval history (pending/resolved tabs)

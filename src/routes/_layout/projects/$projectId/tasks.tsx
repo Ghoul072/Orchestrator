@@ -1,18 +1,20 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { ListChecks, X } from '@phosphor-icons/react'
 import { toast } from 'sonner'
 import { tasksQueryOptions } from '~/queries/tasks'
 import { projectQueryOptions } from '~/queries/projects'
+import { repositoriesQueryOptions } from '~/queries/repositories'
 import { createTask, updateTask } from '~/server/functions/tasks'
-import { getGitHubStatus, pushTaskToGitHub } from '~/server/functions/github'
+import { getGitHubTokenStatus, pushTaskToGitHub } from '~/server/functions/github'
 import { getActiveSessions } from '~/server/functions/agent-sessions'
 import { TaskBoard, type Task } from '~/components/tasks/task-board'
 import { TaskEditor, type TaskFormData } from '~/components/tasks/task-editor'
 import { AgentProgressPanel } from '~/components/tasks/agent-progress-panel'
 import { Card, CardContent } from '~/components/ui/card'
 import { Button } from '~/components/ui/button'
+import { Tabs, TabsList, TabsTrigger } from '~/components/ui/tabs'
 
 export const Route = createFileRoute('/_layout/projects/$projectId/tasks')({
   component: TasksPage,
@@ -25,8 +27,10 @@ function TasksPage() {
   const [editorOpen, setEditorOpen] = useState(false)
   const [editingTask, setEditingTask] = useState<Task | null>(null)
   const [activeAgentTaskId, setActiveAgentTaskId] = useState<string | null>(null)
+  const [repoFilter, setRepoFilter] = useState('all')
 
   const { data: project } = useQuery(projectQueryOptions(projectId))
+  const { data: repositories } = useQuery(repositoriesQueryOptions(projectId))
 
   // Check for active agent sessions in this project
   const { data: activeSessions } = useQuery({
@@ -44,10 +48,9 @@ function TasksPage() {
 
   const { data: tasks, isLoading } = useQuery(tasksQueryOptions({ projectId }))
 
-  // GitHub integration
-  const { data: githubStatus } = useQuery({
-    queryKey: ['github-status', projectId],
-    queryFn: () => getGitHubStatus({ data: { projectId } }),
+  const { data: githubTokenStatus } = useQuery({
+    queryKey: ['github-token-status'],
+    queryFn: () => getGitHubTokenStatus(),
   })
 
   const pushToGitHubMutation = useMutation({
@@ -73,6 +76,7 @@ function TasksPage() {
       createTask({
         data: {
           projectId,
+          repositoryId: data.repositoryId,
           title: data.title,
           description: data.description,
           status: data.status,
@@ -104,6 +108,7 @@ function TasksPage() {
           assignee: data.assignee,
           acceptanceCriteria: data.acceptanceCriteria,
           dueDate: data.dueDate,
+          repositoryId: data.repositoryId,
         },
       }),
     onSuccess: () => {
@@ -113,9 +118,22 @@ function TasksPage() {
     },
   })
 
+  const repositoriesById = new Map(
+    (repositories || []).map((repo) => [repo.id as string, repo])
+  )
+
+  const syncableRepoIds = new Set(
+    (repositories || [])
+      .filter((repo) => repo.githubSyncEnabled)
+      .map((repo) => repo.id as string)
+  )
+
   // Transform tasks to the format expected by TaskBoard
   const boardTasks: Task[] = (tasks || []).map((task) => {
     const hasActiveAgent = tasksWithActiveSessions.has(task.id as string)
+    const repository = task.repositoryId
+      ? repositoriesById.get(task.repositoryId as string)
+      : null
     return {
       id: task.id as string,
       title: task.title as string,
@@ -125,11 +143,39 @@ function TasksPage() {
       effort: task.effort as Task['effort'],
       assignee: hasActiveAgent ? 'Agent' : (task.assignee as string | null),
       parentId: task.parentId as string | null,
+      repositoryId: task.repositoryId as string | null,
+      repositoryName: repository?.name ?? null,
       dueDate: task.dueDate ? new Date(task.dueDate as unknown as string) : null,
       githubIssueUrl: task.githubIssueUrl as string | null,
-      githubEnabled: githubStatus?.connected ?? false,
+      githubEnabled:
+        Boolean(githubTokenStatus?.available) &&
+        Boolean(task.repositoryId && syncableRepoIds.has(task.repositoryId as string)),
     }
   })
+
+  const hasUnassignedTasks = boardTasks.some((task) => !task.repositoryId)
+  const repoTabs = [
+    { id: 'all', label: 'All' },
+    ...(repositories || []).map((repo) => ({ id: repo.id as string, label: repo.name })),
+    ...(hasUnassignedTasks ? [{ id: 'unassigned', label: 'Unassigned' }] : []),
+  ]
+
+  const filteredBoardTasks = boardTasks.filter((task) => {
+    if (repoFilter === 'all') return true
+    if (repoFilter === 'unassigned') return !task.repositoryId
+    return task.repositoryId === repoFilter
+  })
+
+  useEffect(() => {
+    const validIds = new Set([
+      'all',
+      ...(hasUnassignedTasks ? ['unassigned'] : []),
+      ...(repositories || []).map((repo) => repo.id as string),
+    ])
+    if (!validIds.has(repoFilter)) {
+      setRepoFilter('all')
+    }
+  }, [hasUnassignedTasks, repositories, repoFilter])
 
   const handleTaskClick = (taskId: string) => {
     const task = boardTasks.find((t) => t.id === taskId)
@@ -187,6 +233,10 @@ function TasksPage() {
           onOpenChange={setEditorOpen}
           onSubmit={handleEditorSubmit}
           isLoading={createMutation.isPending}
+          repositories={(repositories || []).map((repo) => ({
+            id: repo.id as string,
+            name: repo.name as string,
+          }))}
         />
       </div>
     )
@@ -201,11 +251,24 @@ function TasksPage() {
     <div className="flex h-full">
       {/* Main task board */}
       <div className="flex flex-1 flex-col">
+        {repoTabs.length > 1 && (
+          <div className="border-b px-4 py-3">
+            <Tabs value={repoFilter} onValueChange={setRepoFilter}>
+              <TabsList className="flex-wrap">
+                {repoTabs.map((tab) => (
+                  <TabsTrigger key={tab.id} value={tab.id}>
+                    {tab.label}
+                  </TabsTrigger>
+                ))}
+              </TabsList>
+            </Tabs>
+          </div>
+        )}
         <TaskBoard
-          tasks={boardTasks}
+          tasks={filteredBoardTasks}
           onTaskClick={handleTaskClick}
           onTaskStatusChange={handleTaskStatusChange}
-          onPushToGitHub={githubStatus?.connected ? handlePushToGitHub : undefined}
+          onPushToGitHub={githubTokenStatus?.available ? handlePushToGitHub : undefined}
           onCreateTask={handleCreateTask}
           className="flex-1"
           isLoading={isLoading}
@@ -260,12 +323,17 @@ function TasksPage() {
                 dueDate: editingTask.dueDate
                   ? editingTask.dueDate.toISOString().split('T')[0]
                   : undefined,
+                repositoryId: editingTask.repositoryId ?? null,
               }
             : undefined
         }
         onSubmit={handleEditorSubmit}
         isEditing={!!editingTask}
         isLoading={createMutation.isPending || updateMutation.isPending}
+        repositories={(repositories || []).map((repo) => ({
+          id: repo.id as string,
+          name: repo.name as string,
+        }))}
       />
     </div>
   )

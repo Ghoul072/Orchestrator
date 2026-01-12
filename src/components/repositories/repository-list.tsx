@@ -1,6 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/card'
 import { Badge } from '~/components/ui/badge'
 import { Button } from '~/components/ui/button'
+import { Switch } from '~/components/ui/switch'
 import {
   GitBranchIcon,
   PlusIcon,
@@ -24,6 +25,8 @@ interface Repository {
   cloneStatus: 'pending' | 'cloning' | 'cloned' | 'analyzing' | 'ready' | 'failed' | 'cleaned'
   stack?: string[] | null
   lastClonedAt?: Date | string | null
+  githubSyncEnabled?: boolean
+  githubLastSyncAt?: Date | string | null
 }
 
 interface RepositoryListProps {
@@ -33,6 +36,9 @@ interface RepositoryListProps {
   onDeleteRepository?: (id: string) => void
   onCloneRepository?: (id: string) => void
   onCleanupRepository?: (id: string) => void
+  onToggleGitHubSync?: (id: string, enabled: boolean) => void
+  onSyncGitHub?: (id: string) => void
+  githubTokenAvailable?: boolean
   isCloning?: boolean
   className?: string
 }
@@ -82,6 +88,9 @@ export function RepositoryList({
   onDeleteRepository,
   onCloneRepository,
   onCleanupRepository,
+  onToggleGitHubSync,
+  onSyncGitHub,
+  githubTokenAvailable,
   isCloning,
   className,
 }: RepositoryListProps) {
@@ -113,6 +122,9 @@ export function RepositoryList({
           onDelete={() => onDeleteRepository?.(repo.id)}
           onClone={() => onCloneRepository?.(repo.id)}
           onCleanup={() => onCleanupRepository?.(repo.id)}
+          onToggleGitHubSync={(enabled) => onToggleGitHubSync?.(repo.id, enabled)}
+          onSyncGitHub={() => onSyncGitHub?.(repo.id)}
+          githubTokenAvailable={githubTokenAvailable}
           isCloning={isCloning}
         />
       ))}
@@ -126,6 +138,9 @@ function RepositoryCard({
   onDelete,
   onClone,
   onCleanup,
+  onToggleGitHubSync,
+  onSyncGitHub,
+  githubTokenAvailable,
   isCloning,
 }: {
   repository: Repository
@@ -133,6 +148,9 @@ function RepositoryCard({
   onDelete?: () => void
   onClone?: () => void
   onCleanup?: () => void
+  onToggleGitHubSync?: (enabled: boolean) => void
+  onSyncGitHub?: () => void
+  githubTokenAvailable?: boolean
   isCloning?: boolean
 }) {
   const status = statusConfig[repository.cloneStatus]
@@ -140,6 +158,9 @@ function RepositoryCard({
   const isProcessing = repository.cloneStatus === 'cloning' || repository.cloneStatus === 'analyzing'
   const canClone = ['pending', 'failed', 'cleaned'].includes(repository.cloneStatus)
   const canCleanup = ['ready', 'cloned'].includes(repository.cloneStatus)
+
+  const isGitHubRepo = repository.url.includes('github.com')
+  const githubSyncAvailable = Boolean(githubTokenAvailable) && isGitHubRepo
 
   return (
     <Card className="transition-all hover:shadow-md">
@@ -226,6 +247,47 @@ function RepositoryCard({
                 {tech}
               </Badge>
             ))}
+          </div>
+        </CardContent>
+      )}
+      {(onToggleGitHubSync || onSyncGitHub) && (
+        <CardContent className="pt-0">
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border bg-muted/30 px-3 py-2 text-sm">
+            <div className="flex items-center gap-2">
+              <Switch
+                checked={Boolean(repository.githubSyncEnabled)}
+                onCheckedChange={(checked) => onToggleGitHubSync?.(checked)}
+                disabled={!githubSyncAvailable}
+              />
+              <span className="text-sm">Issue sync</span>
+              {!isGitHubRepo && (
+                <span className="text-xs text-muted-foreground">GitHub only</span>
+              )}
+              {isGitHubRepo && !githubTokenAvailable && (
+                <span className="text-xs text-muted-foreground">Token required</span>
+              )}
+            </div>
+            <div className="flex items-center gap-2">
+              {repository.githubLastSyncAt && (
+                <span className="text-xs text-muted-foreground">
+                  Last sync:{' '}
+                  {new Date(repository.githubLastSyncAt).toLocaleDateString()}
+                </span>
+              )}
+              {onSyncGitHub && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    onSyncGitHub()
+                  }}
+                  disabled={!repository.githubSyncEnabled || !githubSyncAvailable}
+                >
+                  Sync Issues
+                </Button>
+              )}
+            </div>
           </div>
         </CardContent>
       )}

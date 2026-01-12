@@ -1,4 +1,4 @@
-import { eq, desc, and, sql, isNull } from 'drizzle-orm'
+import { eq, desc, and, sql, isNull, type SQL } from 'drizzle-orm'
 import { db } from './index'
 import {
   tasks,
@@ -22,6 +22,7 @@ export async function getTasksByProject(
   options?: {
     includeArchived?: boolean
     status?: Task['status']
+    repositoryId?: string | null
     parentId?: string | null // null = only root tasks
     limit?: number
     offset?: number
@@ -35,6 +36,12 @@ export async function getTasksByProject(
 
   if (options?.status) {
     conditions.push(eq(tasks.status, options.status))
+  }
+
+  if (options?.repositoryId === null) {
+    conditions.push(isNull(tasks.repositoryId))
+  } else if (options?.repositoryId) {
+    conditions.push(eq(tasks.repositoryId, options.repositoryId))
   }
 
   if (options?.parentId === null) {
@@ -61,11 +68,12 @@ export async function listTasks(options?: {
   projectId?: string
   status?: Task['status']
   priority?: Task['priority']
+  repositoryId?: string | null
   includeArchived?: boolean
   limit?: number
   offset?: number
 }): Promise<Task[]> {
-  const conditions: ReturnType<typeof eq>[] = []
+  const conditions: SQL[] = []
 
   if (options?.projectId) {
     conditions.push(eq(tasks.projectId, options.projectId))
@@ -81,6 +89,12 @@ export async function listTasks(options?: {
 
   if (options?.priority) {
     conditions.push(eq(tasks.priority, options.priority))
+  }
+
+  if (options?.repositoryId === null) {
+    conditions.push(isNull(tasks.repositoryId))
+  } else if (options?.repositoryId) {
+    conditions.push(eq(tasks.repositoryId, options.repositoryId))
   }
 
   const result = await db

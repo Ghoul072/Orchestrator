@@ -32,6 +32,7 @@ type GroupBy = 'status' | 'priority' | 'none'
 
 export interface Task extends Omit<TaskCardProps, 'onClick' | 'onStatusChange' | 'onPushToGitHub'> {
   parentId?: string | null
+  repositoryId?: string | null
 }
 
 interface TaskBoardProps {

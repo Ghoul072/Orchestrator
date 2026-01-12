@@ -1,18 +1,11 @@
 import { createServerFn } from '@tanstack/react-start'
 import { z } from 'zod'
-import * as projectsDb from '~/server/db/projects'
 import * as tasksDb from '~/server/db/tasks'
+import * as reposDb from '~/server/db/repositories'
 
 // =============================================================================
 // SCHEMAS
 // =============================================================================
-
-const GitHubSettingsSchema = z.object({
-  projectId: z.string().uuid(),
-  githubRepo: z.string().regex(/^[^/]+\/[^/]+$/, 'Must be in format owner/repo'),
-  githubToken: z.string().min(1, 'GitHub token is required'),
-  githubSyncEnabled: z.boolean(),
-})
 
 const PushTaskSchema = z.object({
   taskId: z.string().uuid(),
@@ -20,6 +13,15 @@ const PushTaskSchema = z.object({
 
 const SyncProjectSchema = z.object({
   projectId: z.string().uuid(),
+})
+
+const SyncRepositorySchema = z.object({
+  repositoryId: z.string().uuid(),
+})
+
+const UpdateRepositorySyncSchema = z.object({
+  repositoryId: z.string().uuid(),
+  enabled: z.boolean(),
 })
 
 // =============================================================================
@@ -42,6 +44,26 @@ interface GitHubCreateIssueResponse {
   id: number
   number: number
   html_url: string
+}
+
+function getGitHubToken(): string | null {
+  return process.env.GITHUB_TOKEN || process.env.GH_TOKEN || null
+}
+
+function parseGitHubRepo(url: string): { owner: string; repo: string } | null {
+  const patterns = [
+    /github\.com[/:]([^/]+)\/([^/.]+?)(?:\.git)?$/,
+    /^([^/]+)\/([^/]+)$/, // owner/repo format
+  ]
+
+  for (const pattern of patterns) {
+    const match = url.match(pattern)
+    if (match) {
+      return { owner: match[1], repo: match[2] }
+    }
+  }
+
+  return null
 }
 
 async function githubFetch<T>(
@@ -67,17 +89,14 @@ async function githubFetch<T>(
   return response.json() as Promise<T>
 }
 
-// Map task status to GitHub issue state
 function taskStatusToIssueState(status: string): 'open' | 'closed' {
   return status === 'completed' || status === 'cancelled' ? 'closed' : 'open'
 }
 
-// Map GitHub issue state to task status
 function issueStateToTaskStatus(state: 'open' | 'closed'): 'pending' | 'completed' {
   return state === 'closed' ? 'completed' : 'pending'
 }
 
-// Map task priority to GitHub labels
 function priorityToLabel(priority: string | null): string | null {
   const map: Record<string, string> = {
     urgent: 'priority: critical',
@@ -88,37 +107,201 @@ function priorityToLabel(priority: string | null): string | null {
   return priority ? map[priority] || null : null
 }
 
+async function resolveRepositoryForTask(task: { projectId: string; repositoryId?: string | null }) {
+  if (task.repositoryId) {
+    const repository = await reposDb.getRepositoryById(task.repositoryId)
+    if (!repository) {
+      throw new Error('Repository not found for task')
+    }
+    return { repository, assigned: false }
+  }
+
+  const repositories = await reposDb.getRepositoriesByProject(task.projectId)
+  const syncableRepositories = repositories.filter((repo) => repo.githubSyncEnabled)
+
+  if (repositories.length === 1) {
+    return { repository: repositories[0]!, assigned: true }
+  }
+
+  if (syncableRepositories.length === 1) {
+    return { repository: syncableRepositories[0]!, assigned: true }
+  }
+
+  throw new Error('Task is not linked to a repository. Please assign one.')
+}
+
+async function syncRepositoryIssuesById(repositoryId: string) {
+  const repository = await reposDb.getRepositoryById(repositoryId)
+  if (!repository) {
+    throw new Error('Repository not found')
+  }
+
+  if (!repository.githubSyncEnabled) {
+    throw new Error('GitHub sync is disabled for this repository')
+  }
+
+  const token = getGitHubToken()
+  if (!token) {
+    throw new Error('GitHub token not configured')
+  }
+
+  const parsed = parseGitHubRepo(repository.url)
+  if (!parsed) {
+    throw new Error('Repository URL is not a valid GitHub URL')
+  }
+
+  const { owner, repo } = parsed
+
+  const issues = await githubFetch<GitHubIssue[]>(
+    `/repos/${owner}/${repo}/issues?state=all&per_page=100`,
+    token
+  )
+
+  const existingTasks = await tasksDb.getTasksByProject(repository.projectId, {
+    repositoryId: repository.id,
+  })
+
+  const tasksByIssueId = new Map(
+    existingTasks
+      .filter((t) => t.githubIssueId)
+      .map((t) => [t.githubIssueId, t])
+  )
+
+  const results = {
+    created: 0,
+    updated: 0,
+    unchanged: 0,
+  }
+
+  for (const issue of issues) {
+    if ('pull_request' in issue) continue
+
+    const existingTask = tasksByIssueId.get(issue.number)
+    if (existingTask) {
+      const newStatus = issueStateToTaskStatus(issue.state)
+      if (
+        existingTask.title !== issue.title ||
+        existingTask.description !== (issue.body || '') ||
+        existingTask.status !== newStatus
+      ) {
+        await tasksDb.updateTask(existingTask.id, {
+          title: issue.title,
+          description: issue.body || '',
+          status: newStatus,
+        })
+        results.updated++
+      } else {
+        results.unchanged++
+      }
+    } else {
+      await tasksDb.createTask({
+        projectId: repository.projectId,
+        repositoryId: repository.id,
+        title: issue.title,
+        description: issue.body || '',
+        status: issueStateToTaskStatus(issue.state),
+        githubIssueId: issue.number,
+        githubIssueUrl: issue.html_url,
+      })
+      results.created++
+    }
+  }
+
+  await reposDb.updateGitHubLastSyncAt(repository.id, new Date())
+
+  return {
+    repositoryId: repository.id,
+    repositoryName: repository.name,
+    ...results,
+  }
+}
+
 // =============================================================================
 // SERVER FUNCTIONS
 // =============================================================================
 
-/**
- * Update GitHub settings for a project
- */
-export const updateGitHubSettings = createServerFn({ method: 'POST' })
-  .inputValidator(GitHubSettingsSchema)
+export const getGitHubTokenStatus = createServerFn({ method: 'POST' }).handler(async () => {
+  const token = getGitHubToken()
+  return {
+    available: Boolean(token),
+  }
+})
+
+export const updateRepositoryGitHubSync = createServerFn({ method: 'POST' })
+  .inputValidator(UpdateRepositorySyncSchema)
   .handler(async ({ data }) => {
-    // Validate the token by making a test API call
-    const [owner, repo] = data.githubRepo.split('/')
-    try {
-      await githubFetch(`/repos/${owner}/${repo}`, data.githubToken)
-    } catch {
-      throw new Error('Invalid GitHub token or repository. Please check your credentials.')
+    const repository = await reposDb.getRepositoryById(data.repositoryId)
+    if (!repository) {
+      throw new Error('Repository not found')
     }
 
-    // Update project settings
-    const project = await projectsDb.updateProject(data.projectId, {
-      githubRepo: data.githubRepo,
-      githubToken: data.githubToken,
-      githubSyncEnabled: data.githubSyncEnabled,
-    })
+    if (data.enabled) {
+      const token = getGitHubToken()
+      if (!token) {
+        throw new Error('GitHub token not configured')
+      }
 
-    return { success: true, project }
+      const parsed = parseGitHubRepo(repository.url)
+      if (!parsed) {
+        throw new Error('Repository URL is not a valid GitHub URL')
+      }
+    }
+
+    const updated = await reposDb.updateGitHubSync(data.repositoryId, data.enabled)
+    if (!updated) {
+      throw new Error('Repository not found')
+    }
+
+    return updated
   })
 
-/**
- * Push a task to GitHub as an issue
- */
+export const syncRepositoryIssues = createServerFn({ method: 'POST' })
+  .inputValidator(SyncRepositorySchema)
+  .handler(async ({ data }) => {
+    return syncRepositoryIssuesById(data.repositoryId)
+  })
+
+export const syncProjectIssues = createServerFn({ method: 'POST' })
+  .inputValidator(SyncProjectSchema)
+  .handler(async ({ data }) => {
+    const repositories = await reposDb.getRepositoriesByProject(data.projectId)
+    const syncable = repositories.filter((repo) => repo.githubSyncEnabled)
+
+    const results = [] as Array<
+      | { repositoryId: string; repositoryName: string; created: number; updated: number; unchanged: number }
+      | { repositoryId: string; repositoryName: string; error: string }
+    >
+
+    for (const repository of syncable) {
+      try {
+        const repoResult = await syncRepositoryIssuesById(repository.id)
+        results.push(repoResult)
+      } catch (error) {
+        results.push({
+          repositoryId: repository.id,
+          repositoryName: repository.name,
+          error: error instanceof Error ? error.message : 'Unknown error',
+        })
+      }
+    }
+
+    const totals = results.reduce(
+      (acc, result) => {
+        if ('error' in result) return acc
+        acc.created += result.created
+        acc.updated += result.updated
+        acc.unchanged += result.unchanged
+        return acc
+      },
+      { created: 0, updated: 0, unchanged: 0 }
+    )
+
+    return {
+      repositories: results,
+      totals,
+    }
+  })
+
 export const pushTaskToGitHub = createServerFn({ method: 'POST' })
   .inputValidator(PushTaskSchema)
   .handler(async ({ data }) => {
@@ -127,35 +310,41 @@ export const pushTaskToGitHub = createServerFn({ method: 'POST' })
       throw new Error('Task not found')
     }
 
-    const project = await projectsDb.getProjectById(task.projectId)
-    if (!project) {
-      throw new Error('Project not found')
+    const token = getGitHubToken()
+    if (!token) {
+      throw new Error('GitHub token not configured')
     }
 
-    if (!project.githubRepo || !project.githubToken) {
-      throw new Error('GitHub is not configured for this project')
+    const { repository, assigned } = await resolveRepositoryForTask({
+      projectId: task.projectId,
+      repositoryId: task.repositoryId,
+    })
+
+    if (!repository.githubSyncEnabled) {
+      throw new Error('GitHub sync is disabled for this repository')
     }
 
-    const [owner, repo] = project.githubRepo.split('/')
+    const parsed = parseGitHubRepo(repository.url)
+    if (!parsed) {
+      throw new Error('Repository URL is not a valid GitHub URL')
+    }
 
-    // Build issue body
+    const { owner, repo } = parsed
+
     let body = task.description || ''
     if (task.acceptanceCriteria && task.acceptanceCriteria.length > 0) {
       body += '\n\n## Acceptance Criteria\n'
       body += task.acceptanceCriteria.map((c: string) => `- [ ] ${c}`).join('\n')
     }
 
-    // Build labels
     const labels: string[] = []
     const priorityLabel = priorityToLabel(task.priority)
     if (priorityLabel) labels.push(priorityLabel)
 
-    // Check if issue already exists
     if (task.githubIssueId) {
-      // Update existing issue
       const issue = await githubFetch<GitHubIssue>(
         `/repos/${owner}/${repo}/issues/${task.githubIssueId}`,
-        project.githubToken,
+        token,
         {
           method: 'PATCH',
           body: JSON.stringify({
@@ -170,10 +359,9 @@ export const pushTaskToGitHub = createServerFn({ method: 'POST' })
       return { issue, action: 'updated' }
     }
 
-    // Create new issue
     const issue = await githubFetch<GitHubCreateIssueResponse>(
       `/repos/${owner}/${repo}/issues`,
-      project.githubToken,
+      token,
       {
         method: 'POST',
         body: JSON.stringify({
@@ -184,156 +372,11 @@ export const pushTaskToGitHub = createServerFn({ method: 'POST' })
       }
     )
 
-    // Update task with GitHub issue info
     await tasksDb.updateTask(data.taskId, {
       githubIssueId: issue.number,
       githubIssueUrl: issue.html_url,
+      ...(assigned ? { repositoryId: repository.id } : {}),
     })
 
     return { issue, action: 'created' }
-  })
-
-/**
- * Sync tasks from GitHub issues
- */
-export const syncFromGitHub = createServerFn({ method: 'POST' })
-  .inputValidator(SyncProjectSchema)
-  .handler(async ({ data }) => {
-    const project = await projectsDb.getProjectById(data.projectId)
-    if (!project) {
-      throw new Error('Project not found')
-    }
-
-    if (!project.githubRepo || !project.githubToken) {
-      throw new Error('GitHub is not configured for this project')
-    }
-
-    const [owner, repo] = project.githubRepo.split('/')
-
-    // Fetch all open issues
-    const issues = await githubFetch<GitHubIssue[]>(
-      `/repos/${owner}/${repo}/issues?state=all&per_page=100`,
-      project.githubToken
-    )
-
-    // Get existing tasks for this project
-    const existingTasks = await tasksDb.getTasksByProject(data.projectId)
-    const tasksByIssueId = new Map(
-      existingTasks
-        .filter((t) => t.githubIssueId)
-        .map((t) => [t.githubIssueId, t])
-    )
-
-    const results = {
-      created: 0,
-      updated: 0,
-      unchanged: 0,
-    }
-
-    for (const issue of issues) {
-      // Skip pull requests (they also appear in issues endpoint)
-      if ('pull_request' in issue) continue
-
-      const existingTask = tasksByIssueId.get(issue.number)
-
-      if (existingTask) {
-        // Check if update needed
-        const newStatus = issueStateToTaskStatus(issue.state)
-        if (
-          existingTask.title !== issue.title ||
-          existingTask.description !== (issue.body || '') ||
-          existingTask.status !== newStatus
-        ) {
-          await tasksDb.updateTask(existingTask.id, {
-            title: issue.title,
-            description: issue.body || '',
-            status: newStatus,
-          })
-          results.updated++
-        } else {
-          results.unchanged++
-        }
-      } else {
-        // Create new task from issue
-        await tasksDb.createTask({
-          projectId: data.projectId,
-          title: issue.title,
-          description: issue.body || '',
-          status: issueStateToTaskStatus(issue.state),
-          githubIssueId: issue.number,
-          githubIssueUrl: issue.html_url,
-        })
-        results.created++
-      }
-    }
-
-    // Update last sync timestamp
-    await projectsDb.updateProject(data.projectId, {
-      githubLastSyncAt: new Date(),
-    })
-
-    return results
-  })
-
-/**
- * Get GitHub connection status for a project
- */
-export const getGitHubStatus = createServerFn({ method: 'POST' })
-  .inputValidator(z.object({ projectId: z.string().uuid() }))
-  .handler(async ({ data }) => {
-    const project = await projectsDb.getProjectById(data.projectId)
-    if (!project) {
-      throw new Error('Project not found')
-    }
-
-    if (!project.githubRepo || !project.githubToken) {
-      return {
-        connected: false,
-        repo: null,
-        syncEnabled: false,
-        lastSyncAt: null,
-      }
-    }
-
-    // Test connection
-    const [owner, repo] = project.githubRepo.split('/')
-    let repoInfo = null
-    try {
-      repoInfo = await githubFetch<{ full_name: string; html_url: string }>(
-        `/repos/${owner}/${repo}`,
-        project.githubToken
-      )
-    } catch {
-      return {
-        connected: false,
-        repo: project.githubRepo,
-        syncEnabled: project.githubSyncEnabled,
-        lastSyncAt: project.githubLastSyncAt,
-        error: 'Connection failed',
-      }
-    }
-
-    return {
-      connected: true,
-      repo: repoInfo.full_name,
-      repoUrl: repoInfo.html_url,
-      syncEnabled: project.githubSyncEnabled,
-      lastSyncAt: project.githubLastSyncAt,
-    }
-  })
-
-/**
- * Disconnect GitHub from a project
- */
-export const disconnectGitHub = createServerFn({ method: 'POST' })
-  .inputValidator(z.object({ projectId: z.string().uuid() }))
-  .handler(async ({ data }) => {
-    await projectsDb.updateProject(data.projectId, {
-      githubRepo: null,
-      githubToken: null,
-      githubSyncEnabled: false,
-      githubLastSyncAt: null,
-    })
-
-    return { success: true }
   })

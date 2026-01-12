@@ -1,6 +1,7 @@
 import { createServerFn } from '@tanstack/react-start'
 import { z } from 'zod'
 import * as tasksDb from '~/server/db/tasks'
+import * as reposDb from '~/server/db/repositories'
 
 // =============================================================================
 // SCHEMAS
@@ -14,6 +15,7 @@ const TaskUpdateTypeSchema = z.enum(['progress', 'blocker', 'question', 'complet
 
 const CreateTaskSchema = z.object({
   projectId: z.string().uuid(),
+  repositoryId: z.string().uuid().nullable().optional(),
   parentId: z.string().uuid().nullable().optional(),
   title: z.string().min(1).max(500),
   description: z.string().optional(),
@@ -37,6 +39,7 @@ const UpdateTaskSchema = z.object({
   dueDate: z.string().nullable().optional(),
   isArchived: z.boolean().optional(),
   autoStartWhenUnblocked: z.boolean().optional(),
+  repositoryId: z.string().uuid().nullable().optional(),
 })
 
 const TaskIdSchema = z.object({
@@ -47,6 +50,7 @@ const GetTasksSchema = z.object({
   projectId: z.string().uuid(),
   includeArchived: z.boolean().optional(),
   status: TaskStatusSchema.optional(),
+  repositoryId: z.string().uuid().nullable().optional(),
   parentId: z.string().uuid().nullable().optional(),
   limit: z.number().int().min(1).max(1000).optional(),
   offset: z.number().int().min(0).optional(),
@@ -93,6 +97,7 @@ export const getTasks = createServerFn({ method: 'POST' })
     return tasksDb.getTasksByProject(data.projectId, {
       includeArchived: data.includeArchived,
       status: data.status,
+      repositoryId: data.repositoryId,
       parentId: data.parentId,
       limit: data.limit,
       offset: data.offset,
@@ -131,8 +136,17 @@ export const getTaskWithSubtasks = createServerFn({ method: 'POST' })
 export const createTask = createServerFn({ method: 'POST' })
   .inputValidator(CreateTaskSchema)
   .handler(async ({ data }) => {
+    let repositoryId = data.repositoryId
+    if (repositoryId === undefined) {
+      const repositories = await reposDb.getRepositoriesByProject(data.projectId)
+      if (repositories.length === 1) {
+        repositoryId = repositories[0]?.id ?? null
+      }
+    }
+
     const taskData: Parameters<typeof tasksDb.createTask>[0] = {
       projectId: data.projectId,
+      repositoryId: repositoryId ?? null,
       parentId: data.parentId ?? undefined,
       title: data.title,
       description: data.description,

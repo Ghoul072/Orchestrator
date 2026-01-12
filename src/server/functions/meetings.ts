@@ -3,6 +3,7 @@ import { z } from 'zod'
 import Anthropic from '@anthropic-ai/sdk'
 import * as meetingsDb from '~/server/db/meetings'
 import * as tasksDb from '~/server/db/tasks'
+import * as reposDb from '~/server/db/repositories'
 
 // Initialize Anthropic client
 const anthropic = new Anthropic()
@@ -249,11 +250,16 @@ Only include tasks that represent actual action items. Be specific and actionabl
     }
 
     // Create tasks and link them to the meeting
+    const repositories = await reposDb.getRepositoriesByProject(data.projectId)
+    const defaultRepositoryId =
+      repositories.length === 1 ? repositories[0]?.id ?? null : null
+
     const createdTasks = []
     for (const taskData of parsedResponse.tasks) {
       // Create the task
       const task = await tasksDb.createTask({
         projectId: data.projectId,
+        repositoryId: defaultRepositoryId ?? undefined,
         title: taskData.title,
         description: taskData.description,
         priority: taskData.priority,

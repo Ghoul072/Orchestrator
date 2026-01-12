@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { PlusIcon } from '@phosphor-icons/react'
+import { toast } from 'sonner'
 import { repositoriesQueryOptions } from '~/queries/repositories'
 import { projectQueryOptions } from '~/queries/projects'
 import {
@@ -10,6 +11,11 @@ import {
   cloneRepository,
   cleanupRepository,
 } from '~/server/functions/repos'
+import {
+  getGitHubTokenStatus,
+  syncRepositoryIssues,
+  updateRepositoryGitHubSync,
+} from '~/server/functions/github'
 import { RepositoryList } from '~/components/repositories/repository-list'
 import { AddRepositoryDialog } from '~/components/repositories/add-repository-dialog'
 import { Button } from '~/components/ui/button'
@@ -41,6 +47,10 @@ function RepositoriesPage() {
   const { data: project } = useQuery(projectQueryOptions(projectId))
 
   const { data: repositories, isLoading } = useQuery(repositoriesQueryOptions(projectId))
+  const { data: githubTokenStatus } = useQuery({
+    queryKey: ['github-token-status'],
+    queryFn: () => getGitHubTokenStatus(),
+  })
 
   const createMutation = useMutation({
     mutationFn: (data: { url: string; name: string; branch: string }) =>
@@ -78,6 +88,41 @@ function RepositoriesPage() {
     mutationFn: (id: string) => cleanupRepository({ data: { id } }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['repositories', projectId] })
+    },
+  })
+
+  const updateSyncMutation = useMutation({
+    mutationFn: (data: { id: string; enabled: boolean }) =>
+      updateRepositoryGitHubSync({
+        data: {
+          repositoryId: data.id,
+          enabled: data.enabled,
+        },
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['repositories', projectId] })
+      toast.success('Repository sync settings updated')
+    },
+    onError: (error) => {
+      toast.error('Failed to update GitHub sync', {
+        description: error instanceof Error ? error.message : 'Unknown error',
+      })
+    },
+  })
+
+  const syncIssuesMutation = useMutation({
+    mutationFn: (id: string) => syncRepositoryIssues({ data: { repositoryId: id } }),
+    onSuccess: (result) => {
+      toast.success('GitHub issues synced', {
+        description: `Created: ${result.created}, Updated: ${result.updated}, Unchanged: ${result.unchanged}`,
+      })
+      queryClient.invalidateQueries({ queryKey: ['tasks', projectId] })
+      queryClient.invalidateQueries({ queryKey: ['repositories', projectId] })
+    },
+    onError: (error) => {
+      toast.error('Sync failed', {
+        description: error instanceof Error ? error.message : 'Unknown error',
+      })
     },
   })
 
@@ -121,6 +166,8 @@ function RepositoriesPage() {
           cloneStatus: string;
           stack: string[] | null;
           lastClonedAt: Date | null;
+          githubSyncEnabled?: boolean | null;
+          githubLastSyncAt?: Date | null;
         }) => ({
           id: r.id,
           name: r.name,
@@ -129,11 +176,18 @@ function RepositoriesPage() {
           cloneStatus: r.cloneStatus as 'pending' | 'cloning' | 'cloned' | 'analyzing' | 'ready' | 'failed' | 'cleaned',
           stack: r.stack,
           lastClonedAt: r.lastClonedAt,
+          githubSyncEnabled: Boolean(r.githubSyncEnabled),
+          githubLastSyncAt: r.githubLastSyncAt,
         }))}
         onAddRepository={() => setAddDialogOpen(true)}
         onDeleteRepository={handleDelete}
         onCloneRepository={(id) => cloneMutation.mutate(id)}
         onCleanupRepository={(id) => cleanupMutation.mutate(id)}
+        onToggleGitHubSync={(id, enabled) =>
+          updateSyncMutation.mutate({ id, enabled })
+        }
+        onSyncGitHub={(id) => syncIssuesMutation.mutate(id)}
+        githubTokenAvailable={githubTokenStatus?.available ?? false}
         isCloning={cloneMutation.isPending}
       />
       )}

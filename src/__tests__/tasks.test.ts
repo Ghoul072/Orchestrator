@@ -10,6 +10,7 @@ const TaskUpdateTypeSchema = z.enum(['progress', 'blocker', 'question', 'complet
 
 const CreateTaskSchema = z.object({
   projectId: z.string().uuid(),
+  repositoryId: z.string().uuid().nullable().optional(),
   parentId: z.string().uuid().nullable().optional(),
   title: z.string().min(1).max(500),
   description: z.string().optional(),
@@ -33,6 +34,7 @@ const UpdateTaskSchema = z.object({
   dueDate: z.string().nullable().optional(),
   isArchived: z.boolean().optional(),
   autoStartWhenUnblocked: z.boolean().optional(),
+  repositoryId: z.string().uuid().nullable().optional(),
 })
 
 const AddTaskUpdateSchema = z.object({
@@ -118,6 +120,17 @@ describe('Task Validation Schemas', () => {
       }
 
       const result = CreateTaskSchema.safeParse(taskWithEffort)
+      expect(result.success).toBe(true)
+    })
+
+    it('should accept task with repository assignment', () => {
+      const taskWithRepo = {
+        projectId: '550e8400-e29b-41d4-a716-446655440000',
+        repositoryId: '660e8400-e29b-41d4-a716-446655440000',
+        title: 'Issue synced task',
+      }
+
+      const result = CreateTaskSchema.safeParse(taskWithRepo)
       expect(result.success).toBe(true)
     })
   })

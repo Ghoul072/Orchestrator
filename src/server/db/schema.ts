@@ -201,6 +201,8 @@ export const repositories = pgTable(
     branch: varchar('branch', { length: 255 }).default('main'),
     localPath: text('local_path'),
     cloneStatus: repoCloneStatusEnum('clone_status').default('pending').notNull(),
+    githubSyncEnabled: boolean('github_sync_enabled').default(false).notNull(),
+    githubLastSyncAt: timestamp('github_last_sync_at', { withTimezone: true }),
     stack: jsonb('stack').$type<string[]>(),
     dependencies: jsonb('dependencies').$type<string[]>(),
     lastClonedAt: timestamp('last_cloned_at', { withTimezone: true }),
@@ -221,6 +223,9 @@ export const tasks = pgTable(
     projectId: uuid('project_id')
       .notNull()
       .references(() => projects.id, { onDelete: 'cascade' }),
+    repositoryId: uuid('repository_id').references(() => repositories.id, {
+      onDelete: 'set null',
+    }),
     parentId: uuid('parent_id'),
     title: varchar('title', { length: 500 }).notNull(),
     description: text('description'),
@@ -243,6 +248,7 @@ export const tasks = pgTable(
   },
   (table) => ({
     projectIdIdx: index('tasks_project_id_idx').on(table.projectId),
+    repositoryIdIdx: index('tasks_repository_id_idx').on(table.repositoryId),
     parentIdIdx: index('tasks_parent_id_idx').on(table.parentId),
     statusIdx: index('tasks_status_idx').on(table.status),
     priorityIdx: index('tasks_priority_idx').on(table.priority),
@@ -563,6 +569,10 @@ export const tasksRelations = relations(tasks, ({ one, many }) => ({
     fields: [tasks.projectId],
     references: [projects.id],
   }),
+  repository: one(repositories, {
+    fields: [tasks.repositoryId],
+    references: [repositories.id],
+  }),
   parent: one(tasks, {
     fields: [tasks.parentId],
     references: [tasks.id],
@@ -597,6 +607,14 @@ export const meetingsRelations = relations(meetings, ({ one, many }) => ({
   }),
   taskLinks: many(meetingTaskLinks),
   linkedDocuments: many(documents),
+}))
+
+export const repositoriesRelations = relations(repositories, ({ one, many }) => ({
+  project: one(projects, {
+    fields: [repositories.projectId],
+    references: [projects.id],
+  }),
+  tasks: many(tasks),
 }))
 
 export const documentsRelations = relations(documents, ({ one, many }) => ({

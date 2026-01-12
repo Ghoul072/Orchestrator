@@ -11,6 +11,7 @@ interface GetTasksParams {
   projectId: string
   includeArchived?: boolean
   status?: 'pending' | 'in_progress' | 'blocked' | 'completed' | 'cancelled'
+  repositoryId?: string | null
   parentId?: string | null
   limit?: number
   offset?: number

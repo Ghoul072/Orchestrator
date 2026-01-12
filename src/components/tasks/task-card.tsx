@@ -43,6 +43,7 @@ export interface TaskCardProps {
   priority: TaskPriority
   effort?: TaskEffort | null
   assignee?: string | null
+  repositoryName?: string | null
   subtaskCount?: number
   completedSubtaskCount?: number
   dueDate?: Date | null
@@ -90,6 +91,7 @@ export function TaskCard({
   priority,
   effort,
   assignee,
+  repositoryName,
   subtaskCount = 0,
   completedSubtaskCount = 0,
   dueDate,
@@ -287,6 +289,11 @@ export function TaskCard({
 
         {/* Metadata row */}
         <div className="flex flex-wrap items-center gap-2">
+          {repositoryName && (
+            <Badge variant="outline" className="text-xs">
+              {repositoryName}
+            </Badge>
+          )}
           <Badge
             variant="secondary"
             className={cn('text-xs', priorityColors[priority])}

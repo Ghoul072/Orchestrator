@@ -12,6 +12,13 @@ import { Input } from '~/components/ui/input'
 import { Textarea } from '~/components/ui/textarea'
 import { ScrollArea } from '~/components/ui/scroll-area'
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '~/components/ui/select'
+import {
   Plus,
   Trash,
   X,
@@ -32,6 +39,7 @@ export interface TaskFormData {
   assignee?: string
   acceptanceCriteria: string[]
   dueDate?: string
+  repositoryId?: string | null
   parentId?: string | null
 }
 
@@ -39,6 +47,7 @@ interface TaskEditorProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   initialData?: Partial<TaskFormData>
+  repositories?: Array<{ id: string; name: string }>
   onSubmit: (data: TaskFormData) => void
   onDelete?: () => void
   isEditing?: boolean
@@ -72,6 +81,7 @@ export function TaskEditor({
   open,
   onOpenChange,
   initialData,
+  repositories = [],
   onSubmit,
   onDelete,
   isEditing = false,
@@ -91,17 +101,21 @@ export function TaskEditor({
   // Reset form when dialog opens/closes
   useEffect(() => {
     if (open) {
-      setFormData({
+      const nextData: TaskFormData = {
         title: '',
         description: '',
         status: 'pending',
         priority: 'medium',
         acceptanceCriteria: [],
         ...initialData,
-      })
+      }
+      if (nextData.repositoryId === undefined && repositories.length === 1) {
+        nextData.repositoryId = repositories[0]?.id ?? null
+      }
+      setFormData(nextData)
       setNewCriterion('')
     }
-  }, [open, initialData])
+  }, [open, initialData, repositories])
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -296,6 +310,33 @@ export function TaskEditor({
                   placeholder="Assign to..."
                 />
               </div>
+
+              {repositories.length > 0 && (
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Repository</label>
+                  <Select
+                    value={formData.repositoryId ?? 'unassigned'}
+                    onValueChange={(value) =>
+                      setFormData((prev) => ({
+                        ...prev,
+                        repositoryId: value === 'unassigned' ? null : value,
+                      }))
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Choose repository" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="unassigned">Unassigned</SelectItem>
+                      {repositories.map((repo) => (
+                        <SelectItem key={repo.id} value={repo.id}>
+                          {repo.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
 
               {/* Acceptance Criteria */}
               <div className="space-y-2">

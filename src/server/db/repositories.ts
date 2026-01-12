@@ -127,6 +127,42 @@ export async function updateStackInfo(
 }
 
 /**
+ * Update GitHub sync settings for a repository
+ */
+export async function updateGitHubSync(
+  id: string,
+  enabled: boolean
+): Promise<Repository | undefined> {
+  const [result] = await db
+    .update(repositories)
+    .set({
+      githubSyncEnabled: enabled,
+      updatedAt: new Date(),
+    })
+    .where(eq(repositories.id, id))
+    .returning()
+  return result
+}
+
+/**
+ * Update GitHub last sync timestamp for a repository
+ */
+export async function updateGitHubLastSyncAt(
+  id: string,
+  lastSyncAt: Date | null
+): Promise<Repository | undefined> {
+  const [result] = await db
+    .update(repositories)
+    .set({
+      githubLastSyncAt: lastSyncAt,
+      updatedAt: new Date(),
+    })
+    .where(eq(repositories.id, id))
+    .returning()
+  return result
+}
+
+/**
  * Delete a repository
  */
 export async function deleteRepository(id: string): Promise<boolean> {

@@ -12,6 +12,10 @@
  * - create_task: Create new task
  * - update_task_status: Update task status
  * - add_task_update: Add progress update to task
+ * - list_approvals: List approval requests with filters
+ * - get_approval: Get approval details with change requests
+ * - create_approval: Create new approval request
+ * - resubmit_approval: Resubmit after addressing change requests
  */
 
 import { Server } from '@modelcontextprotocol/sdk/server/index.js'
@@ -24,6 +28,7 @@ import { z } from 'zod'
 
 import * as projectsDb from '../src/server/db/projects'
 import * as tasksDb from '../src/server/db/tasks'
+import * as approvalsDb from '../src/server/db/approvals'
 
 // Tool input schemas
 const ListProjectsSchema = z.object({
@@ -79,6 +84,32 @@ const AddTaskUpdateSchema = z.object({
     .optional()
     .default('progress'),
   author: z.string().optional(),
+})
+
+// Approval schemas
+const ListApprovalsSchema = z.object({
+  status: z
+    .enum(['pending', 'approved', 'rejected', 'changes_requested'])
+    .optional(),
+  taskId: z.string().uuid().optional(),
+  limit: z.number().min(1).max(100).optional().default(50),
+})
+
+const GetApprovalSchema = z.object({
+  id: z.string().uuid(),
+})
+
+const CreateApprovalSchema = z.object({
+  taskId: z.string().uuid().optional(),
+  actionType: z.enum(['file_delete', 'git_push', 'git_force_push']),
+  actionDescription: z.string().min(1),
+  diffContent: z.string().optional(),
+  filesAffected: z.array(z.string()).optional(),
+})
+
+const ResubmitApprovalSchema = z.object({
+  id: z.string().uuid(),
+  newDiffContent: z.string().optional(),
 })
 
 // Create MCP server
@@ -272,6 +303,97 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
             },
           },
           required: ['taskId', 'content'],
+        },
+      },
+      // Approval tools
+      {
+        name: 'list_approvals',
+        description:
+          'List approval requests. Use status=changes_requested to find approvals that need your attention.',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            status: {
+              type: 'string',
+              enum: ['pending', 'approved', 'rejected', 'changes_requested'],
+              description: 'Filter by status (e.g., changes_requested for items needing revision)',
+            },
+            taskId: {
+              type: 'string',
+              description: 'Filter by task UUID',
+            },
+            limit: {
+              type: 'number',
+              description: 'Maximum number to return (default: 50)',
+            },
+          },
+        },
+      },
+      {
+        name: 'get_approval',
+        description:
+          'Get detailed approval information including change requests. Change requests contain line-level feedback that you should address.',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            id: {
+              type: 'string',
+              description: 'Approval UUID',
+            },
+          },
+          required: ['id'],
+        },
+      },
+      {
+        name: 'create_approval',
+        description:
+          'Create a new approval request for a destructive action (file delete, git push, etc.).',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            taskId: {
+              type: 'string',
+              description: 'Related task UUID (optional)',
+            },
+            actionType: {
+              type: 'string',
+              enum: ['file_delete', 'git_push', 'git_force_push'],
+              description: 'Type of destructive action',
+            },
+            actionDescription: {
+              type: 'string',
+              description: 'Human-readable description of the action',
+            },
+            diffContent: {
+              type: 'string',
+              description: 'Git diff content to be reviewed',
+            },
+            filesAffected: {
+              type: 'array',
+              items: { type: 'string' },
+              description: 'List of file paths affected',
+            },
+          },
+          required: ['actionType', 'actionDescription'],
+        },
+      },
+      {
+        name: 'resubmit_approval',
+        description:
+          'Resubmit an approval after addressing change requests. Resets status to pending with optional updated diff.',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            id: {
+              type: 'string',
+              description: 'Approval UUID',
+            },
+            newDiffContent: {
+              type: 'string',
+              description: 'Updated diff content after addressing change requests',
+            },
+          },
+          required: ['id'],
         },
       },
     ],
@@ -552,6 +674,152 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
                     content: update.content,
                     updateType: update.updateType,
                     createdAt: update.createdAt,
+                  },
+                },
+                null,
+                2
+              ),
+            },
+          ],
+        }
+      }
+
+      // Approval tool handlers
+      case 'list_approvals': {
+        const input = ListApprovalsSchema.parse(args)
+        const approvals = await approvalsDb.getApprovals({
+          status: input.status,
+          taskId: input.taskId,
+          limit: input.limit,
+        })
+
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify(
+                approvals.map((a) => ({
+                  id: a.id,
+                  status: a.status,
+                  actionType: a.actionType,
+                  actionDescription: a.actionDescription,
+                  taskId: a.taskId,
+                  hasChangeRequests: a.changeRequests && a.changeRequests.length > 0,
+                  changeRequestCount: a.changeRequests?.length ?? 0,
+                  createdAt: a.createdAt,
+                })),
+                null,
+                2
+              ),
+            },
+          ],
+        }
+      }
+
+      case 'get_approval': {
+        const input = GetApprovalSchema.parse(args)
+        const approval = await approvalsDb.getApprovalById(input.id)
+
+        if (!approval) {
+          return {
+            content: [{ type: 'text', text: `Approval ${input.id} not found` }],
+            isError: true,
+          }
+        }
+
+        // Format change requests for agent consumption
+        const formattedChangeRequests = approval.changeRequests?.map((cr) => ({
+          lineNumber: cr.lineNumber,
+          lineType: cr.lineType,
+          content: cr.content,
+          isChangeRequest: cr.isChangeRequest,
+        }))
+
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify(
+                {
+                  id: approval.id,
+                  status: approval.status,
+                  actionType: approval.actionType,
+                  actionDescription: approval.actionDescription,
+                  taskId: approval.taskId,
+                  filesAffected: approval.filesAffected,
+                  diffContent: approval.diffContent,
+                  changeRequests: formattedChangeRequests,
+                  githubPrUrl: approval.githubPrUrl,
+                  createdAt: approval.createdAt,
+                  resolvedAt: approval.resolvedAt,
+                },
+                null,
+                2
+              ),
+            },
+          ],
+        }
+      }
+
+      case 'create_approval': {
+        const input = CreateApprovalSchema.parse(args)
+        const approval = await approvalsDb.createApproval({
+          taskId: input.taskId,
+          actionType: input.actionType,
+          actionDescription: input.actionDescription,
+          diffContent: input.diffContent,
+          filesAffected: input.filesAffected,
+        })
+
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify(
+                {
+                  success: true,
+                  approval: {
+                    id: approval.id,
+                    status: approval.status,
+                    actionType: approval.actionType,
+                    actionDescription: approval.actionDescription,
+                  },
+                },
+                null,
+                2
+              ),
+            },
+          ],
+        }
+      }
+
+      case 'resubmit_approval': {
+        const input = ResubmitApprovalSchema.parse(args)
+        const approval = await approvalsDb.resubmitApproval(input.id, input.newDiffContent)
+
+        if (!approval) {
+          return {
+            content: [
+              {
+                type: 'text',
+                text: `Approval ${input.id} not found or not in changes_requested status`,
+              },
+            ],
+            isError: true,
+          }
+        }
+
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify(
+                {
+                  success: true,
+                  approval: {
+                    id: approval.id,
+                    status: approval.status,
+                    message: 'Approval resubmitted for review',
                   },
                 },
                 null,

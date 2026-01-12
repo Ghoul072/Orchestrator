@@ -19,7 +19,7 @@ import {
 import { Input } from '~/components/ui/input'
 
 export const Route = createFileRoute(
-  '/_layout/projects/$projectId/meetings'
+  '/_layout/projects/$projectId/meetings/'
 )({
   component: MeetingsPage,
 })

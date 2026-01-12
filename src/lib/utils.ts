@@ -82,3 +82,20 @@ export const isServer = typeof window === 'undefined'
  * Check if we're running on the client
  */
 export const isClient = !isServer
+
+/**
+ * Strip HTML tags from a string and return plain text
+ */
+export function stripHtml(html: string): string {
+  if (!html) return ''
+  // Remove HTML tags and decode entities
+  return html
+    .replace(/<[^>]*>/g, '')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .trim()
+}

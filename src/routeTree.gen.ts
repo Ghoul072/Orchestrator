@@ -17,10 +17,10 @@ import { Route as LayoutProjectsProjectIdIndexRouteImport } from './routes/_layo
 import { Route as LayoutProjectsProjectIdTasksRouteImport } from './routes/_layout/projects/$projectId/tasks'
 import { Route as LayoutProjectsProjectIdSettingsRouteImport } from './routes/_layout/projects/$projectId/settings'
 import { Route as LayoutProjectsProjectIdRepositoriesRouteImport } from './routes/_layout/projects/$projectId/repositories'
-import { Route as LayoutProjectsProjectIdMeetingsRouteImport } from './routes/_layout/projects/$projectId/meetings'
 import { Route as LayoutProjectsProjectIdDocumentsRouteImport } from './routes/_layout/projects/$projectId/documents'
 import { Route as LayoutProjectsProjectIdApprovalsRouteImport } from './routes/_layout/projects/$projectId/approvals'
-import { Route as LayoutProjectsProjectIdMeetingsMeetingIdRouteImport } from './routes/_layout/projects/$projectId/meetings.$meetingId'
+import { Route as LayoutProjectsProjectIdMeetingsIndexRouteImport } from './routes/_layout/projects/$projectId/meetings/index'
+import { Route as LayoutProjectsProjectIdMeetingsMeetingIdRouteImport } from './routes/_layout/projects/$projectId/meetings/$meetingId'
 import { Route as LayoutProjectsProjectIdDocumentsDocIdRouteImport } from './routes/_layout/projects/$projectId/documents.$docId'
 
 const LayoutRoute = LayoutRouteImport.update({
@@ -66,12 +66,6 @@ const LayoutProjectsProjectIdRepositoriesRoute =
     path: '/projects/$projectId/repositories',
     getParentRoute: () => LayoutRoute,
   } as any)
-const LayoutProjectsProjectIdMeetingsRoute =
-  LayoutProjectsProjectIdMeetingsRouteImport.update({
-    id: '/projects/$projectId/meetings',
-    path: '/projects/$projectId/meetings',
-    getParentRoute: () => LayoutRoute,
-  } as any)
 const LayoutProjectsProjectIdDocumentsRoute =
   LayoutProjectsProjectIdDocumentsRouteImport.update({
     id: '/projects/$projectId/documents',
@@ -84,11 +78,17 @@ const LayoutProjectsProjectIdApprovalsRoute =
     path: '/projects/$projectId/approvals',
     getParentRoute: () => LayoutRoute,
   } as any)
+const LayoutProjectsProjectIdMeetingsIndexRoute =
+  LayoutProjectsProjectIdMeetingsIndexRouteImport.update({
+    id: '/projects/$projectId/meetings/',
+    path: '/projects/$projectId/meetings/',
+    getParentRoute: () => LayoutRoute,
+  } as any)
 const LayoutProjectsProjectIdMeetingsMeetingIdRoute =
   LayoutProjectsProjectIdMeetingsMeetingIdRouteImport.update({
-    id: '/$meetingId',
-    path: '/$meetingId',
-    getParentRoute: () => LayoutProjectsProjectIdMeetingsRoute,
+    id: '/projects/$projectId/meetings/$meetingId',
+    path: '/projects/$projectId/meetings/$meetingId',
+    getParentRoute: () => LayoutRoute,
   } as any)
 const LayoutProjectsProjectIdDocumentsDocIdRoute =
   LayoutProjectsProjectIdDocumentsDocIdRouteImport.update({
@@ -103,13 +103,13 @@ export interface FileRoutesByFullPath {
   '/projects': typeof LayoutProjectsIndexRoute
   '/projects/$projectId/approvals': typeof LayoutProjectsProjectIdApprovalsRoute
   '/projects/$projectId/documents': typeof LayoutProjectsProjectIdDocumentsRouteWithChildren
-  '/projects/$projectId/meetings': typeof LayoutProjectsProjectIdMeetingsRouteWithChildren
   '/projects/$projectId/repositories': typeof LayoutProjectsProjectIdRepositoriesRoute
   '/projects/$projectId/settings': typeof LayoutProjectsProjectIdSettingsRoute
   '/projects/$projectId/tasks': typeof LayoutProjectsProjectIdTasksRoute
   '/projects/$projectId': typeof LayoutProjectsProjectIdIndexRoute
   '/projects/$projectId/documents/$docId': typeof LayoutProjectsProjectIdDocumentsDocIdRoute
   '/projects/$projectId/meetings/$meetingId': typeof LayoutProjectsProjectIdMeetingsMeetingIdRoute
+  '/projects/$projectId/meetings': typeof LayoutProjectsProjectIdMeetingsIndexRoute
 }
 export interface FileRoutesByTo {
   '/prompts': typeof LayoutPromptsRoute
@@ -117,13 +117,13 @@ export interface FileRoutesByTo {
   '/projects': typeof LayoutProjectsIndexRoute
   '/projects/$projectId/approvals': typeof LayoutProjectsProjectIdApprovalsRoute
   '/projects/$projectId/documents': typeof LayoutProjectsProjectIdDocumentsRouteWithChildren
-  '/projects/$projectId/meetings': typeof LayoutProjectsProjectIdMeetingsRouteWithChildren
   '/projects/$projectId/repositories': typeof LayoutProjectsProjectIdRepositoriesRoute
   '/projects/$projectId/settings': typeof LayoutProjectsProjectIdSettingsRoute
   '/projects/$projectId/tasks': typeof LayoutProjectsProjectIdTasksRoute
   '/projects/$projectId': typeof LayoutProjectsProjectIdIndexRoute
   '/projects/$projectId/documents/$docId': typeof LayoutProjectsProjectIdDocumentsDocIdRoute
   '/projects/$projectId/meetings/$meetingId': typeof LayoutProjectsProjectIdMeetingsMeetingIdRoute
+  '/projects/$projectId/meetings': typeof LayoutProjectsProjectIdMeetingsIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -133,13 +133,13 @@ export interface FileRoutesById {
   '/_layout/projects/': typeof LayoutProjectsIndexRoute
   '/_layout/projects/$projectId/approvals': typeof LayoutProjectsProjectIdApprovalsRoute
   '/_layout/projects/$projectId/documents': typeof LayoutProjectsProjectIdDocumentsRouteWithChildren
-  '/_layout/projects/$projectId/meetings': typeof LayoutProjectsProjectIdMeetingsRouteWithChildren
   '/_layout/projects/$projectId/repositories': typeof LayoutProjectsProjectIdRepositoriesRoute
   '/_layout/projects/$projectId/settings': typeof LayoutProjectsProjectIdSettingsRoute
   '/_layout/projects/$projectId/tasks': typeof LayoutProjectsProjectIdTasksRoute
   '/_layout/projects/$projectId/': typeof LayoutProjectsProjectIdIndexRoute
   '/_layout/projects/$projectId/documents/$docId': typeof LayoutProjectsProjectIdDocumentsDocIdRoute
   '/_layout/projects/$projectId/meetings/$meetingId': typeof LayoutProjectsProjectIdMeetingsMeetingIdRoute
+  '/_layout/projects/$projectId/meetings/': typeof LayoutProjectsProjectIdMeetingsIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -149,13 +149,13 @@ export interface FileRouteTypes {
     | '/projects'
     | '/projects/$projectId/approvals'
     | '/projects/$projectId/documents'
-    | '/projects/$projectId/meetings'
     | '/projects/$projectId/repositories'
     | '/projects/$projectId/settings'
     | '/projects/$projectId/tasks'
     | '/projects/$projectId'
     | '/projects/$projectId/documents/$docId'
     | '/projects/$projectId/meetings/$meetingId'
+    | '/projects/$projectId/meetings'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/prompts'
@@ -163,13 +163,13 @@ export interface FileRouteTypes {
     | '/projects'
     | '/projects/$projectId/approvals'
     | '/projects/$projectId/documents'
-    | '/projects/$projectId/meetings'
     | '/projects/$projectId/repositories'
     | '/projects/$projectId/settings'
     | '/projects/$projectId/tasks'
     | '/projects/$projectId'
     | '/projects/$projectId/documents/$docId'
     | '/projects/$projectId/meetings/$meetingId'
+    | '/projects/$projectId/meetings'
   id:
     | '__root__'
     | '/_layout'
@@ -178,13 +178,13 @@ export interface FileRouteTypes {
     | '/_layout/projects/'
     | '/_layout/projects/$projectId/approvals'
     | '/_layout/projects/$projectId/documents'
-    | '/_layout/projects/$projectId/meetings'
     | '/_layout/projects/$projectId/repositories'
     | '/_layout/projects/$projectId/settings'
     | '/_layout/projects/$projectId/tasks'
     | '/_layout/projects/$projectId/'
     | '/_layout/projects/$projectId/documents/$docId'
     | '/_layout/projects/$projectId/meetings/$meetingId'
+    | '/_layout/projects/$projectId/meetings/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -249,13 +249,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LayoutProjectsProjectIdRepositoriesRouteImport
       parentRoute: typeof LayoutRoute
     }
-    '/_layout/projects/$projectId/meetings': {
-      id: '/_layout/projects/$projectId/meetings'
-      path: '/projects/$projectId/meetings'
-      fullPath: '/projects/$projectId/meetings'
-      preLoaderRoute: typeof LayoutProjectsProjectIdMeetingsRouteImport
-      parentRoute: typeof LayoutRoute
-    }
     '/_layout/projects/$projectId/documents': {
       id: '/_layout/projects/$projectId/documents'
       path: '/projects/$projectId/documents'
@@ -270,12 +263,19 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LayoutProjectsProjectIdApprovalsRouteImport
       parentRoute: typeof LayoutRoute
     }
+    '/_layout/projects/$projectId/meetings/': {
+      id: '/_layout/projects/$projectId/meetings/'
+      path: '/projects/$projectId/meetings'
+      fullPath: '/projects/$projectId/meetings'
+      preLoaderRoute: typeof LayoutProjectsProjectIdMeetingsIndexRouteImport
+      parentRoute: typeof LayoutRoute
+    }
     '/_layout/projects/$projectId/meetings/$meetingId': {
       id: '/_layout/projects/$projectId/meetings/$meetingId'
-      path: '/$meetingId'
+      path: '/projects/$projectId/meetings/$meetingId'
       fullPath: '/projects/$projectId/meetings/$meetingId'
       preLoaderRoute: typeof LayoutProjectsProjectIdMeetingsMeetingIdRouteImport
-      parentRoute: typeof LayoutProjectsProjectIdMeetingsRoute
+      parentRoute: typeof LayoutRoute
     }
     '/_layout/projects/$projectId/documents/$docId': {
       id: '/_layout/projects/$projectId/documents/$docId'
@@ -302,32 +302,18 @@ const LayoutProjectsProjectIdDocumentsRouteWithChildren =
     LayoutProjectsProjectIdDocumentsRouteChildren,
   )
 
-interface LayoutProjectsProjectIdMeetingsRouteChildren {
-  LayoutProjectsProjectIdMeetingsMeetingIdRoute: typeof LayoutProjectsProjectIdMeetingsMeetingIdRoute
-}
-
-const LayoutProjectsProjectIdMeetingsRouteChildren: LayoutProjectsProjectIdMeetingsRouteChildren =
-  {
-    LayoutProjectsProjectIdMeetingsMeetingIdRoute:
-      LayoutProjectsProjectIdMeetingsMeetingIdRoute,
-  }
-
-const LayoutProjectsProjectIdMeetingsRouteWithChildren =
-  LayoutProjectsProjectIdMeetingsRoute._addFileChildren(
-    LayoutProjectsProjectIdMeetingsRouteChildren,
-  )
-
 interface LayoutRouteChildren {
   LayoutPromptsRoute: typeof LayoutPromptsRoute
   LayoutIndexRoute: typeof LayoutIndexRoute
   LayoutProjectsIndexRoute: typeof LayoutProjectsIndexRoute
   LayoutProjectsProjectIdApprovalsRoute: typeof LayoutProjectsProjectIdApprovalsRoute
   LayoutProjectsProjectIdDocumentsRoute: typeof LayoutProjectsProjectIdDocumentsRouteWithChildren
-  LayoutProjectsProjectIdMeetingsRoute: typeof LayoutProjectsProjectIdMeetingsRouteWithChildren
   LayoutProjectsProjectIdRepositoriesRoute: typeof LayoutProjectsProjectIdRepositoriesRoute
   LayoutProjectsProjectIdSettingsRoute: typeof LayoutProjectsProjectIdSettingsRoute
   LayoutProjectsProjectIdTasksRoute: typeof LayoutProjectsProjectIdTasksRoute
   LayoutProjectsProjectIdIndexRoute: typeof LayoutProjectsProjectIdIndexRoute
+  LayoutProjectsProjectIdMeetingsMeetingIdRoute: typeof LayoutProjectsProjectIdMeetingsMeetingIdRoute
+  LayoutProjectsProjectIdMeetingsIndexRoute: typeof LayoutProjectsProjectIdMeetingsIndexRoute
 }
 
 const LayoutRouteChildren: LayoutRouteChildren = {
@@ -337,13 +323,15 @@ const LayoutRouteChildren: LayoutRouteChildren = {
   LayoutProjectsProjectIdApprovalsRoute: LayoutProjectsProjectIdApprovalsRoute,
   LayoutProjectsProjectIdDocumentsRoute:
     LayoutProjectsProjectIdDocumentsRouteWithChildren,
-  LayoutProjectsProjectIdMeetingsRoute:
-    LayoutProjectsProjectIdMeetingsRouteWithChildren,
   LayoutProjectsProjectIdRepositoriesRoute:
     LayoutProjectsProjectIdRepositoriesRoute,
   LayoutProjectsProjectIdSettingsRoute: LayoutProjectsProjectIdSettingsRoute,
   LayoutProjectsProjectIdTasksRoute: LayoutProjectsProjectIdTasksRoute,
   LayoutProjectsProjectIdIndexRoute: LayoutProjectsProjectIdIndexRoute,
+  LayoutProjectsProjectIdMeetingsMeetingIdRoute:
+    LayoutProjectsProjectIdMeetingsMeetingIdRoute,
+  LayoutProjectsProjectIdMeetingsIndexRoute:
+    LayoutProjectsProjectIdMeetingsIndexRoute,
 }
 
 const LayoutRouteWithChildren =

@@ -1,7 +1,8 @@
-import { Outlet } from '@tanstack/react-router'
+import { Outlet, useParams } from '@tanstack/react-router'
 import { useState } from 'react'
-import { PanelLeftClose, PanelLeft } from 'lucide-react'
+import { PanelLeftClose, PanelLeft, MessageSquare, PanelRightClose } from 'lucide-react'
 import { Sidebar } from './sidebar'
+import { ChatPanel } from '~/components/chat/chat-panel'
 import { Button } from '~/components/ui/button'
 import {
   Tooltip,
@@ -12,6 +13,11 @@ import {
 
 export function AppLayout() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
+  const [chatOpen, setChatOpen] = useState(false)
+
+  // Try to get projectId from URL params for chat context
+  const params = useParams({ strict: false }) as { projectId?: string }
+  const projectId = params.projectId
 
   return (
     <TooltipProvider>
@@ -41,14 +47,46 @@ export function AppLayout() {
             </Tooltip>
 
             <div className="flex-1" />
+
+            {/* Chat toggle button */}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant={chatOpen ? 'secondary' : 'ghost'}
+                  size="icon"
+                  onClick={() => setChatOpen(!chatOpen)}
+                >
+                  {chatOpen ? (
+                    <PanelRightClose className="h-5 w-5" />
+                  ) : (
+                    <MessageSquare className="h-5 w-5" />
+                  )}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                {chatOpen ? 'Close AI chat' : 'Open AI chat'}
+              </TooltipContent>
+            </Tooltip>
           </header>
 
-          {/* Main content */}
-          <main className="flex-1 overflow-auto p-6">
-            <div className="mx-auto max-w-6xl">
-              <Outlet />
-            </div>
-          </main>
+          {/* Main content with optional chat panel */}
+          <div className="flex flex-1 overflow-hidden">
+            <main className="flex-1 overflow-auto p-6">
+              <div className="mx-auto max-w-6xl">
+                <Outlet />
+              </div>
+            </main>
+
+            {/* Chat Panel */}
+            {chatOpen && (
+              <div className="w-[400px] border-l bg-background">
+                <ChatPanel
+                  projectId={projectId}
+                  className="h-full rounded-none border-0"
+                />
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </TooltipProvider>

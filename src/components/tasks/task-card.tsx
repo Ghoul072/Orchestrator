@@ -27,7 +27,7 @@ import {
   GithubLogo,
   ArrowSquareOut,
 } from '@phosphor-icons/react'
-import { cn } from '~/lib/utils'
+import { cn, stripHtml } from '~/lib/utils'
 import { AssignAgentDialog } from './assign-agent-dialog'
 
 // Task status and priority types from schema
@@ -192,7 +192,7 @@ export function TaskCard({
 
           {description && !expanded && (
             <p className="mt-1 text-sm text-muted-foreground line-clamp-2">
-              {description}
+              {stripHtml(description)}
             </p>
           )}
         </div>
@@ -283,7 +283,7 @@ export function TaskCard({
         {/* Expanded description */}
         {description && expanded && (
           <p className="mb-3 text-sm text-muted-foreground whitespace-pre-wrap">
-            {description}
+            {stripHtml(description)}
           </p>
         )}
 
@@ -354,7 +354,7 @@ export function TaskCard({
         </div>
 
         {/* Expand toggle for description */}
-        {description && description.length > 100 && (
+        {description && stripHtml(description).length > 100 && (
           <button
             onClick={(e) => {
               e.stopPropagation()

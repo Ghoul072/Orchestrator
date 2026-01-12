@@ -27,7 +27,7 @@ export async function getPendingApprovals(taskId?: string): Promise<Approval[]> 
  */
 export async function getApprovals(options?: {
   taskId?: string
-  status?: 'pending' | 'approved' | 'rejected'
+  status?: 'pending' | 'approved' | 'rejected' | 'changes_requested'
   limit?: number
   offset?: number
 }): Promise<Approval[]> {
@@ -118,6 +118,53 @@ export async function rejectApproval(id: string): Promise<Approval | undefined> 
       resolvedAt: new Date(),
     })
     .where(and(eq(approvals.id, id), eq(approvals.status, 'pending')))
+    .returning()
+  return result
+}
+
+/**
+ * Request changes on an approval
+ */
+export interface ChangeRequest {
+  id: string
+  lineNumber: number
+  lineType: 'add' | 'remove' | 'context'
+  content: string
+  isChangeRequest: boolean
+  createdAt: string
+}
+
+export async function requestChangesOnApproval(
+  id: string,
+  changeRequests: ChangeRequest[]
+): Promise<Approval | undefined> {
+  const [result] = await db
+    .update(approvals)
+    .set({
+      status: 'changes_requested',
+      changeRequests,
+    })
+    .where(and(eq(approvals.id, id), eq(approvals.status, 'pending')))
+    .returning()
+  return result
+}
+
+/**
+ * Resubmit an approval after addressing change requests
+ * Resets status to pending and clears change requests
+ */
+export async function resubmitApproval(
+  id: string,
+  newDiffContent?: string
+): Promise<Approval | undefined> {
+  const [result] = await db
+    .update(approvals)
+    .set({
+      status: 'pending',
+      changeRequests: null,
+      ...(newDiffContent && { diffContent: newDiffContent }),
+    })
+    .where(and(eq(approvals.id, id), eq(approvals.status, 'changes_requested')))
     .returning()
   return result
 }

@@ -77,6 +77,7 @@ export const approvalStatusEnum = pgEnum('approval_status', [
   'pending',
   'approved',
   'rejected',
+  'changes_requested',
 ])
 
 export const agentSessionStatusEnum = pgEnum('agent_session_status', [
@@ -493,6 +494,14 @@ export const approvals = pgTable(
     diffContent: text('diff_content'),
     filesAffected: jsonb('files_affected').$type<string[]>(),
     status: approvalStatusEnum('status').default('pending').notNull(),
+    changeRequests: jsonb('change_requests').$type<{
+      id: string
+      lineNumber: number
+      lineType: 'add' | 'remove' | 'context'
+      content: string
+      isChangeRequest: boolean
+      createdAt: string
+    }[]>(),
     githubPrUrl: text('github_pr_url'), // URL to the PR created after approval
     resolvedAt: timestamp('resolved_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),

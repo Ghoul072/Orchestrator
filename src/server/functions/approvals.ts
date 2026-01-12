@@ -17,9 +17,28 @@ const ApproveApprovalSchema = z.object({
 
 const ListApprovalsSchema = z.object({
   taskId: z.string().uuid().optional(),
-  status: z.enum(['pending', 'approved', 'rejected']).optional(),
+  status: z.enum(['pending', 'approved', 'rejected', 'changes_requested']).optional(),
   limit: z.number().min(1).max(100).optional(),
   offset: z.number().min(0).optional(),
+})
+
+const ChangeRequestSchema = z.object({
+  id: z.string(),
+  lineNumber: z.number(),
+  lineType: z.enum(['add', 'remove', 'context']),
+  content: z.string(),
+  isChangeRequest: z.boolean(),
+  createdAt: z.string(),
+})
+
+const RequestChangesSchema = z.object({
+  id: z.string().uuid(),
+  changeRequests: z.array(ChangeRequestSchema).min(1),
+})
+
+const ResubmitApprovalSchema = z.object({
+  id: z.string().uuid(),
+  newDiffContent: z.string().optional(),
 })
 
 const CreateApprovalSchema = z.object({
@@ -109,6 +128,32 @@ export const rejectApproval = createServerFn({ method: 'POST' })
     const approval = await approvalsDb.rejectApproval(data.id)
     if (!approval) {
       throw new Error('Approval not found or already resolved')
+    }
+    return approval
+  })
+
+/**
+ * Request changes on an approval
+ */
+export const requestChanges = createServerFn({ method: 'POST' })
+  .inputValidator(RequestChangesSchema)
+  .handler(async ({ data }) => {
+    const approval = await approvalsDb.requestChangesOnApproval(data.id, data.changeRequests)
+    if (!approval) {
+      throw new Error('Approval not found or already resolved')
+    }
+    return approval
+  })
+
+/**
+ * Resubmit an approval after addressing change requests
+ */
+export const resubmitApproval = createServerFn({ method: 'POST' })
+  .inputValidator(ResubmitApprovalSchema)
+  .handler(async ({ data }) => {
+    const approval = await approvalsDb.resubmitApproval(data.id, data.newDiffContent)
+    if (!approval) {
+      throw new Error('Approval not found or not in changes_requested status')
     }
     return approval
   })

@@ -404,3 +404,133 @@ export async function processTaskCompletion(completedTaskId: string): Promise<Ta
 
   return unblocked
 }
+
+/**
+ * Check if two tasks have a dependency relationship (direct or transitive)
+ */
+export async function tasksHaveDependency(taskId1: string, taskId2: string): Promise<boolean> {
+  // Check direct dependencies in both directions
+  const relations = await db
+    .select()
+    .from(taskRelations)
+    .where(
+      and(
+        sql`(${taskRelations.sourceTaskId} = ${taskId1} AND ${taskRelations.targetTaskId} = ${taskId2})
+           OR (${taskRelations.sourceTaskId} = ${taskId2} AND ${taskRelations.targetTaskId} = ${taskId1})`,
+        sql`${taskRelations.relationType} IN ('blocks', 'blocked_by')`
+      )
+    )
+
+  return relations.length > 0
+}
+
+/**
+ * Get tasks that can run in parallel (no dependency conflicts)
+ * Returns groups of independent tasks
+ */
+export async function getParallelizableTasks(projectId: string): Promise<Task[][]> {
+  // Get all pending or in_progress tasks for the project
+  const allTasks = await db
+    .select()
+    .from(tasks)
+    .where(
+      and(
+        eq(tasks.projectId, projectId),
+        eq(tasks.isArchived, false),
+        sql`${tasks.status} IN ('pending', 'in_progress')`
+      )
+    )
+
+  if (allTasks.length === 0) return []
+
+  // Get all dependency relations for these tasks
+  const taskIds = allTasks.map((t) => t.id)
+  const relations = await db
+    .select()
+    .from(taskRelations)
+    .where(
+      and(
+        sql`${taskRelations.sourceTaskId} = ANY(${sql.raw(`ARRAY[${taskIds.map(id => `'${id}'`).join(',')}]::uuid[]`)})`,
+        sql`${taskRelations.relationType} IN ('blocks', 'blocked_by')`
+      )
+    )
+
+  // Build adjacency list
+  const hasConflict = new Map<string, Set<string>>()
+  for (const task of allTasks) {
+    hasConflict.set(task.id, new Set())
+  }
+  for (const rel of relations) {
+    hasConflict.get(rel.sourceTaskId)?.add(rel.targetTaskId)
+    hasConflict.get(rel.targetTaskId)?.add(rel.sourceTaskId)
+  }
+
+  // Group independent tasks using graph coloring approach
+  const assigned = new Set<string>()
+  const groups: Task[][] = []
+
+  for (const task of allTasks) {
+    if (assigned.has(task.id)) continue
+
+    // Start a new group with this task
+    const group: Task[] = [task]
+    assigned.add(task.id)
+
+    // Add other tasks that don't conflict with any task in this group
+    for (const otherTask of allTasks) {
+      if (assigned.has(otherTask.id)) continue
+
+      // Check if otherTask conflicts with any task in current group
+      const conflicts = group.some((groupTask) =>
+        hasConflict.get(otherTask.id)?.has(groupTask.id) ?? false
+      )
+
+      if (!conflicts) {
+        group.push(otherTask)
+        assigned.add(otherTask.id)
+      }
+    }
+
+    groups.push(group)
+  }
+
+  return groups
+}
+
+/**
+ * Get independent tasks that can be started in parallel
+ * Only returns tasks that are ready (pending, no blockers)
+ */
+export async function getReadyParallelTasks(projectId: string, limit = 3): Promise<Task[]> {
+  // Get pending tasks without blockers
+  const pendingTasks = await db
+    .select()
+    .from(tasks)
+    .where(
+      and(
+        eq(tasks.projectId, projectId),
+        eq(tasks.isArchived, false),
+        eq(tasks.status, 'pending')
+      )
+    )
+    .orderBy(tasks.sortOrder, tasks.createdAt)
+
+  // Filter out tasks with unresolved blockers
+  const readyTasks: Task[] = []
+  for (const task of pendingTasks) {
+    if (readyTasks.length >= limit) break
+
+    const hasBlockers = await hasUnresolvedBlockers(task.id)
+    if (!hasBlockers) {
+      // Check if this task conflicts with any already selected tasks
+      const conflicts = await Promise.all(
+        readyTasks.map((t) => tasksHaveDependency(task.id, t.id))
+      )
+      if (!conflicts.some(Boolean)) {
+        readyTasks.push(task)
+      }
+    }
+  }
+
+  return readyTasks
+}

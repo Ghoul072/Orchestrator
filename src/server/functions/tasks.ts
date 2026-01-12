@@ -320,3 +320,26 @@ export const checkTaskBlockers = createServerFn({ method: 'POST' })
     const hasBlockers = await tasksDb.hasUnresolvedBlockers(data.id)
     return { hasBlockers }
   })
+
+/**
+ * Get tasks that can run in parallel for a project
+ */
+export const getReadyParallelTasks = createServerFn({ method: 'POST' })
+  .inputValidator(z.object({
+    projectId: z.string().uuid(),
+    limit: z.number().int().min(1).max(10).optional(),
+  }))
+  .handler(async ({ data }) => {
+    return tasksDb.getReadyParallelTasks(data.projectId, data.limit ?? 3)
+  })
+
+/**
+ * Get parallelizable task groups for a project
+ */
+export const getParallelizableTaskGroups = createServerFn({ method: 'POST' })
+  .inputValidator(z.object({
+    projectId: z.string().uuid(),
+  }))
+  .handler(async ({ data }) => {
+    return tasksDb.getParallelizableTasks(data.projectId)
+  })

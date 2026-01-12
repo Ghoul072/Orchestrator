@@ -120,7 +120,7 @@ function TasksPage() {
     },
   })
 
-  // Update task mutation
+  // Update task mutation with optimistic updates for smooth drag-and-drop
   const updateMutation = useMutation({
     mutationFn: ({ id, data }: { id: string; data: Partial<TaskFormData> }) =>
       updateTask({
@@ -137,10 +137,44 @@ function TasksPage() {
           repositoryId: data.repositoryId,
         },
       }),
+    onMutate: async ({ id, data }) => {
+      // Cancel any outgoing refetches so they don't overwrite our optimistic update
+      await queryClient.cancelQueries({ queryKey: ['tasks', { projectId }] })
+
+      // Snapshot the previous value
+      const previousTasks = queryClient.getQueryData(['tasks', { projectId }])
+
+      // Optimistically update the cache
+      queryClient.setQueryData(
+        ['tasks', { projectId }],
+        (old: Array<Record<string, unknown>> | undefined) => {
+          if (!old) return old
+          return old.map((task) => {
+            if (task.id === id) {
+              return { ...task, ...data }
+            }
+            return task
+          })
+        }
+      )
+
+      // Return context with the previous value
+      return { previousTasks }
+    },
+    onError: (_err, _variables, context) => {
+      // Rollback on error
+      if (context?.previousTasks) {
+        queryClient.setQueryData(['tasks', { projectId }], context.previousTasks)
+      }
+      toast.error('Failed to update task')
+    },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['tasks'] })
       setEditorOpen(false)
       setEditingTask(null)
+    },
+    onSettled: () => {
+      // Always refetch after error or success to ensure we're in sync
+      queryClient.invalidateQueries({ queryKey: ['tasks', { projectId }] })
     },
   })
 

@@ -33,7 +33,7 @@ See **UI.md** for detailed UI design notes, component specs, and layout structur
 - **Auth**: None required (Claude SDK handles auth via CLI)
 - **Real-time**: WebSocket bridge for agent communication
 - **MCP**: Model Context Protocol for tool integration
-- **AI Integration**: `@anthropic-ai/sdk` for task generation from meetings
+- **AI Integration**: `@anthropic-ai/claude-agent-sdk` for local AI features (task generation, meeting analysis)
 
 ## Database Schema (Drizzle ORM)
 - **projects** - Top-level containers for work

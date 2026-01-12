@@ -136,6 +136,7 @@ export function CreateProjectDialog({ trigger }: CreateProjectDialogProps) {
                 checked={generateTasks && hasDescriptionForTasks}
                 onCheckedChange={(checked) => setGenerateTasks(checked === true)}
                 disabled={!hasDescriptionForTasks}
+                className="mt-0.5"
               />
               <div className="grid gap-1.5 leading-none">
                 <Label

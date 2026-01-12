@@ -1,4 +1,17 @@
 import { useState, useMemo, useCallback } from 'react'
+import {
+  DndContext,
+  DragOverlay,
+  closestCorners,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragStartEvent,
+  type DragEndEvent,
+} from '@dnd-kit/core'
+import { useSortable, SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
 import { TaskCard, type TaskCardProps } from './task-card'
 import { Button } from '~/components/ui/button'
 import { Input } from '~/components/ui/input'
@@ -337,6 +350,7 @@ export function TaskBoard({
           onTaskClick={onTaskClick}
           onTaskStatusChange={onTaskStatusChange}
           onPushToGitHub={onPushToGitHub}
+          allTasks={tasks}
         />
       )}
     </div>
@@ -439,20 +453,127 @@ function ListView({
   )
 }
 
-// Kanban view component
+// Sortable task card wrapper for drag-drop
+function SortableTaskCard({
+  task,
+  onTaskClick,
+  onTaskStatusChange,
+  onPushToGitHub,
+}: {
+  task: Task
+  onTaskClick?: (taskId: string) => void
+  onTaskStatusChange?: (taskId: string, status: TaskStatus) => void
+  onPushToGitHub?: (taskId: string) => void
+}) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: task.id })
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  }
+
+  return (
+    <div ref={setNodeRef} style={style} {...attributes} {...listeners}>
+      <TaskCard
+        {...task}
+        onClick={() => onTaskClick?.(task.id)}
+        onStatusChange={(newStatus) => onTaskStatusChange?.(task.id, newStatus)}
+        onPushToGitHub={onPushToGitHub ? () => onPushToGitHub(task.id) : undefined}
+        className="cursor-grab active:cursor-grabbing"
+      />
+    </div>
+  )
+}
+
+// Droppable column for Kanban
+function KanbanColumn({
+  status,
+  tasks,
+  onTaskClick,
+  onTaskStatusChange,
+  onPushToGitHub,
+}: {
+  status: TaskStatus
+  tasks: Task[]
+  onTaskClick?: (taskId: string) => void
+  onTaskStatusChange?: (taskId: string, status: TaskStatus) => void
+  onPushToGitHub?: (taskId: string) => void
+}) {
+  return (
+    <div
+      className="flex w-72 flex-shrink-0 flex-col rounded-lg bg-muted/30"
+      data-status={status}
+    >
+      {/* Column header */}
+      <div className="flex items-center gap-2 border-b bg-muted/50 px-3 py-2">
+        <div className={cn('h-2 w-2 rounded-full', statusColors[status])} />
+        <h3 className="flex-1 font-medium text-sm">{statusLabels[status]}</h3>
+        <Badge variant="secondary" className="text-xs">
+          {tasks.length}
+        </Badge>
+      </div>
+
+      {/* Column content */}
+      <ScrollArea className="flex-1 p-2">
+        <SortableContext items={tasks.map((t) => t.id)} strategy={verticalListSortingStrategy}>
+          <div className="space-y-2 min-h-[100px]">
+            {tasks.map((task) => (
+              <SortableTaskCard
+                key={task.id}
+                task={task}
+                onTaskClick={onTaskClick}
+                onTaskStatusChange={onTaskStatusChange}
+                onPushToGitHub={onPushToGitHub}
+              />
+            ))}
+
+            {tasks.length === 0 && (
+              <p className="py-8 text-center text-xs text-muted-foreground">
+                Drop tasks here
+              </p>
+            )}
+          </div>
+        </SortableContext>
+      </ScrollArea>
+    </div>
+  )
+}
+
+// Kanban view component with drag-drop
 function KanbanView({
   groupedTasks,
   groupBy,
   onTaskClick,
   onTaskStatusChange,
   onPushToGitHub,
+  allTasks,
 }: {
   groupedTasks: Record<string, Task[]>
   groupBy: GroupBy
   onTaskClick?: (taskId: string) => void
   onTaskStatusChange?: (taskId: string, status: TaskStatus) => void
   onPushToGitHub?: (taskId: string) => void
+  allTasks: Task[]
 }) {
+  const [activeId, setActiveId] = useState<string | null>(null)
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8,
+      },
+    }),
+    useSensor(KeyboardSensor)
+  )
+
   // For kanban, always group by status if not already
   const columns =
     groupBy === 'status'
@@ -466,58 +587,97 @@ function KanbanView({
           ])
         )
 
+  const activeTask = activeId ? allTasks.find((t) => t.id === activeId) : null
+
+  const handleDragStart = (event: DragStartEvent) => {
+    setActiveId(event.active.id as string)
+  }
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event
+    setActiveId(null)
+
+    if (!over) return
+
+    const taskId = active.id as string
+    const task = allTasks.find((t) => t.id === taskId)
+    if (!task) return
+
+    // Find which column the task was dropped in
+    // Check if dropped on another task
+    const overTask = allTasks.find((t) => t.id === over.id)
+    if (overTask && overTask.status !== task.status) {
+      onTaskStatusChange?.(taskId, overTask.status)
+      return
+    }
+
+    // Check if dropped on a column (by checking the over element's parent)
+    const overElement = document.querySelector(`[data-status]`)
+    if (overElement) {
+      const newStatus = overElement.getAttribute('data-status') as TaskStatus
+      if (newStatus && newStatus !== task.status) {
+        onTaskStatusChange?.(taskId, newStatus)
+      }
+    }
+  }
+
+  const handleDragOver = (event: DragEndEvent) => {
+    const { active, over } = event
+    if (!over) return
+
+    const taskId = active.id as string
+    const task = allTasks.find((t) => t.id === taskId)
+    if (!task) return
+
+    // Find the target status from the over element
+    let targetStatus: TaskStatus | null = null
+
+    // Check if over another task
+    const overTask = allTasks.find((t) => t.id === over.id)
+    if (overTask) {
+      targetStatus = overTask.status
+    }
+
+    // If we found a different status, update the task
+    if (targetStatus && targetStatus !== task.status) {
+      onTaskStatusChange?.(taskId, targetStatus)
+    }
+  }
+
   return (
-    <div className="flex flex-1 gap-4 overflow-x-auto p-4">
-      {statusOrder.map((status) => {
-        const tasks = columns[status] || []
+    <DndContext
+      sensors={sensors}
+      collisionDetection={closestCorners}
+      onDragStart={handleDragStart}
+      onDragEnd={handleDragEnd}
+      onDragOver={handleDragOver}
+    >
+      <div className="flex flex-1 gap-4 overflow-x-auto p-4">
+        {statusOrder.map((status) => {
+          const tasks = columns[status] || []
 
-        return (
-          <div
-            key={status}
-            className="flex w-72 flex-shrink-0 flex-col rounded-lg bg-muted/30"
-          >
-            {/* Column header */}
-            <div className="flex items-center gap-2 border-b bg-muted/50 px-3 py-2">
-              <div
-                className={cn('h-2 w-2 rounded-full', statusColors[status])}
-              />
-              <h3 className="flex-1 font-medium text-sm">
-                {statusLabels[status]}
-              </h3>
-              <Badge variant="secondary" className="text-xs">
-                {tasks.length}
-              </Badge>
-            </div>
+          return (
+            <KanbanColumn
+              key={status}
+              status={status}
+              tasks={tasks}
+              onTaskClick={onTaskClick}
+              onTaskStatusChange={onTaskStatusChange}
+              onPushToGitHub={onPushToGitHub}
+            />
+          )
+        })}
+      </div>
 
-            {/* Column content */}
-            <ScrollArea className="flex-1 p-2">
-              <div className="space-y-2">
-                {tasks.map((task) => (
-                  <TaskCard
-                    key={task.id}
-                    {...task}
-                    onClick={() => onTaskClick?.(task.id)}
-                    onStatusChange={(newStatus) =>
-                      onTaskStatusChange?.(task.id, newStatus)
-                    }
-                    onPushToGitHub={
-                      onPushToGitHub
-                        ? () => onPushToGitHub(task.id)
-                        : undefined
-                    }
-                  />
-                ))}
-
-                {tasks.length === 0 && (
-                  <p className="py-8 text-center text-xs text-muted-foreground">
-                    No tasks
-                  </p>
-                )}
-              </div>
-            </ScrollArea>
-          </div>
-        )
-      })}
-    </div>
+      {/* Drag overlay shows the card being dragged */}
+      <DragOverlay>
+        {activeTask ? (
+          <TaskCard
+            {...activeTask}
+            className="shadow-lg rotate-3 opacity-90"
+          />
+        ) : null}
+      </DragOverlay>
+    </DndContext>
   )
 }

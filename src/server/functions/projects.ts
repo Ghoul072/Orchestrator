@@ -1,11 +1,58 @@
 import { createServerFn } from '@tanstack/react-start'
 import { z } from 'zod'
-import Anthropic from '@anthropic-ai/sdk'
+import { query, type SDKUserMessage } from '@anthropic-ai/claude-agent-sdk'
 import * as projectsDb from '~/server/db/projects'
 import * as tasksDb from '~/server/db/tasks'
 
-// Initialize Anthropic client
-const anthropic = new Anthropic()
+/**
+ * Run a single-shot query using Claude Code SDK (runs locally)
+ * Returns the assistant's text response
+ */
+async function runSingleQuery(prompt: string): Promise<string> {
+  // Create a simple async iterable with just one message
+  const messages: SDKUserMessage[] = [
+    {
+      type: 'user',
+      message: { role: 'user', content: prompt },
+      parent_tool_use_id: null,
+      session_id: crypto.randomUUID(),
+    } as SDKUserMessage,
+  ]
+
+  async function* messageIterator(): AsyncIterable<SDKUserMessage> {
+    for (const msg of messages) {
+      yield msg
+    }
+  }
+
+  const queryInstance = query({
+    prompt: messageIterator(),
+    options: {
+      maxTurns: 1, // Single turn for task generation
+      allowedTools: [], // No tools needed, just text generation
+    },
+  })
+
+  let responseText = ''
+
+  // Collect the response
+  for await (const message of queryInstance) {
+    const msg = message as {
+      type?: string
+      message?: { content?: Array<{ type: string; text?: string }> }
+    }
+
+    // Handle assistant messages
+    if (msg.type === 'assistant' && msg.message?.content) {
+      const textContent = msg.message.content.find((c) => c.type === 'text')
+      if (textContent?.text) {
+        responseText = textContent.text
+      }
+    }
+  }
+
+  return responseText
+}
 
 // =============================================================================
 // SCHEMAS
@@ -225,14 +272,8 @@ export const generateTasksFromDescription = createServerFn({ method: 'POST' })
       .replace(/\s+/g, ' ')
       .trim()
 
-    // Use Claude to analyze project description and generate tasks
-    const response = await anthropic.messages.create({
-      model: 'claude-sonnet-4-20250514',
-      max_tokens: 4096,
-      messages: [
-        {
-          role: 'user',
-          content: `You are a project planning assistant. Analyze the following project description and create a comprehensive task breakdown for building this project.
+    // Use Claude Code SDK to analyze project description and generate tasks
+    const prompt = `You are a project planning assistant. Analyze the following project description and create a comprehensive task breakdown for building this project.
 
 Project Name: ${project.name}
 
@@ -247,7 +288,7 @@ Create a structured list of tasks needed to complete this project. For each task
 - Acceptance criteria
 - Subtasks if needed for complex tasks
 
-Respond with a JSON object:
+Respond with ONLY a JSON object (no markdown code blocks):
 {
   "tasks": [
     {
@@ -269,19 +310,15 @@ Focus on:
 3. Including technical setup, core features, and polish tasks
 4. Being specific and actionable
 
-Generate between 5-15 tasks depending on project complexity.`,
-        },
-      ],
-    })
+Generate between 5-15 tasks depending on project complexity.`
 
-    // Parse the response
-    const textBlock = response.content.find((c) => c.type === 'text')
-    if (!textBlock || textBlock.type !== 'text') {
-      throw new Error('No text response from AI')
+    const responseText = await runSingleQuery(prompt)
+    if (!responseText) {
+      throw new Error('No response from AI')
     }
 
     // Extract JSON from response (may be wrapped in markdown code block)
-    let jsonStr = textBlock.text
+    let jsonStr = responseText
     const jsonMatch = jsonStr.match(/```(?:json)?\s*([\s\S]*?)```/)
     if (jsonMatch) {
       jsonStr = jsonMatch[1]

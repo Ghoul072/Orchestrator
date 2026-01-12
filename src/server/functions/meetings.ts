@@ -1,12 +1,56 @@
 import { createServerFn } from '@tanstack/react-start'
 import { z } from 'zod'
-import Anthropic from '@anthropic-ai/sdk'
+import { query, type SDKUserMessage } from '@anthropic-ai/claude-agent-sdk'
 import * as meetingsDb from '~/server/db/meetings'
 import * as tasksDb from '~/server/db/tasks'
 import * as reposDb from '~/server/db/repositories'
 
-// Initialize Anthropic client
-const anthropic = new Anthropic()
+/**
+ * Run a single-shot query using Claude Code SDK (runs locally)
+ * Returns the assistant's text response
+ */
+async function runSingleQuery(prompt: string): Promise<string> {
+  const messages: SDKUserMessage[] = [
+    {
+      type: 'user',
+      message: { role: 'user', content: prompt },
+      parent_tool_use_id: null,
+      session_id: crypto.randomUUID(),
+    } as SDKUserMessage,
+  ]
+
+  async function* messageIterator(): AsyncIterable<SDKUserMessage> {
+    for (const msg of messages) {
+      yield msg
+    }
+  }
+
+  const queryInstance = query({
+    prompt: messageIterator(),
+    options: {
+      maxTurns: 1,
+      allowedTools: [],
+    },
+  })
+
+  let responseText = ''
+
+  for await (const message of queryInstance) {
+    const msg = message as {
+      type?: string
+      message?: { content?: Array<{ type: string; text?: string }> }
+    }
+
+    if (msg.type === 'assistant' && msg.message?.content) {
+      const textContent = msg.message.content.find((c) => c.type === 'text')
+      if (textContent?.text) {
+        responseText = textContent.text
+      }
+    }
+  }
+
+  return responseText
+}
 
 // =============================================================================
 // SCHEMAS
@@ -192,14 +236,8 @@ export const generateTasksFromMeeting = createServerFn({ method: 'POST' })
       .replace(/\s+/g, ' ')
       .trim()
 
-    // Use Claude to analyze meeting content
-    const response = await anthropic.messages.create({
-      model: 'claude-sonnet-4-20250514',
-      max_tokens: 4096,
-      messages: [
-        {
-          role: 'user',
-          content: `Analyze the following meeting notes and extract actionable tasks. For each task, provide a clear title, description, priority (low/medium/high/urgent), and acceptance criteria.
+    // Use Claude Code SDK to analyze meeting content
+    const prompt = `Analyze the following meeting notes and extract actionable tasks. For each task, provide a clear title, description, priority (low/medium/high/urgent), and acceptance criteria.
 
 Meeting Title: ${meeting.title}
 Date: ${meeting.date}
@@ -208,7 +246,7 @@ Attendees: ${meeting.attendees?.join(', ') || 'Not specified'}
 Meeting Notes:
 ${plainContent}
 
-Respond with a JSON array of tasks in this exact format:
+Respond with ONLY a JSON object (no markdown code blocks):
 {
   "tasks": [
     {
@@ -220,19 +258,15 @@ Respond with a JSON array of tasks in this exact format:
   ]
 }
 
-Only include tasks that represent actual action items. Be specific and actionable. If no clear tasks are mentioned, return an empty array.`,
-        },
-      ],
-    })
+Only include tasks that represent actual action items. Be specific and actionable. If no clear tasks are mentioned, return an empty array.`
 
-    // Parse the response
-    const textBlock = response.content.find((c) => c.type === 'text')
-    if (!textBlock || textBlock.type !== 'text') {
-      throw new Error('No text response from AI')
+    const responseText = await runSingleQuery(prompt)
+    if (!responseText) {
+      throw new Error('No response from AI')
     }
 
     // Extract JSON from response (may be wrapped in markdown code block)
-    let jsonStr = textBlock.text
+    let jsonStr = responseText
     const jsonMatch = jsonStr.match(/```(?:json)?\s*([\s\S]*?)```/)
     if (jsonMatch) {
       jsonStr = jsonMatch[1]
@@ -323,14 +357,8 @@ export const updateTasksFromMeeting = createServerFn({ method: 'POST' })
       )
       .join('\n\n')
 
-    // Use Claude to analyze meeting content and suggest updates
-    const response = await anthropic.messages.create({
-      model: 'claude-sonnet-4-20250514',
-      max_tokens: 4096,
-      messages: [
-        {
-          role: 'user',
-          content: `Analyze the following meeting notes and compare them against existing project tasks. Identify any tasks that need updates based on new requirements, scope changes, or priority adjustments mentioned in the meeting.
+    // Use Claude Code SDK to analyze meeting content and suggest updates
+    const prompt = `Analyze the following meeting notes and compare them against existing project tasks. Identify any tasks that need updates based on new requirements, scope changes, or priority adjustments mentioned in the meeting.
 
 Meeting Title: ${meeting.title}
 Date: ${meeting.date}
@@ -342,7 +370,7 @@ ${plainContent}
 Existing Tasks:
 ${tasksContext}
 
-Respond with a JSON object containing tasks that need updates:
+Respond with ONLY a JSON object (no markdown code blocks):
 {
   "updates": [
     {
@@ -356,19 +384,15 @@ Respond with a JSON object containing tasks that need updates:
   ]
 }
 
-Only include tasks that actually need updates based on the meeting content. If a task's requirements, scope, or priority were discussed and changed, include it. If nothing relevant was discussed, return an empty array.`,
-        },
-      ],
-    })
+Only include tasks that actually need updates based on the meeting content. If a task's requirements, scope, or priority were discussed and changed, include it. If nothing relevant was discussed, return an empty array.`
 
-    // Parse the response
-    const textBlock = response.content.find((c) => c.type === 'text')
-    if (!textBlock || textBlock.type !== 'text') {
-      throw new Error('No text response from AI')
+    const responseText = await runSingleQuery(prompt)
+    if (!responseText) {
+      throw new Error('No response from AI')
     }
 
     // Extract JSON from response
-    let jsonStr = textBlock.text
+    let jsonStr = responseText
     const jsonMatch = jsonStr.match(/```(?:json)?\s*([\s\S]*?)```/)
     if (jsonMatch) {
       jsonStr = jsonMatch[1]

@@ -42,10 +42,12 @@ export function AddRepositoryDialog({
     })
   }
 
+  const [nameManuallyEdited, setNameManuallyEdited] = useState(false)
+
   const handleUrlChange = (newUrl: string) => {
     setUrl(newUrl)
-    // Auto-fill name from URL
-    if (!name.trim()) {
+    // Auto-fill name from URL (only if user hasn't manually edited the name)
+    if (!nameManuallyEdited) {
       const derived = extractRepoName(newUrl)
       if (derived) {
         setName(derived)
@@ -53,10 +55,16 @@ export function AddRepositoryDialog({
     }
   }
 
+  const handleNameChange = (newName: string) => {
+    setName(newName)
+    setNameManuallyEdited(true)
+  }
+
   const handleClose = () => {
     setUrl('')
     setName('')
     setBranch('main')
+    setNameManuallyEdited(false)
     onOpenChange(false)
   }
 
@@ -92,7 +100,7 @@ export function AddRepositoryDialog({
               <Input
                 id="name"
                 value={name}
-                onChange={(e) => setName(e.target.value)}
+                onChange={(e) => handleNameChange(e.target.value)}
                 placeholder="Auto-derived from URL"
               />
             </div>
@@ -122,19 +130,25 @@ export function AddRepositoryDialog({
 
 /**
  * Extract repository name from various GitHub URL formats
+ * Only returns a name when the URL appears complete (ends with a valid repo name)
  */
 function extractRepoName(url: string): string {
-  // Handle various URL formats
-  const patterns = [
-    /github\.com[/:]([^/]+)\/([^/.]+?)(?:\.git)?$/,
-    /^([^/]+)\/([^/]+)$/,
-  ]
+  // Trim the URL
+  const trimmed = url.trim()
+  if (!trimmed) return ''
 
-  for (const pattern of patterns) {
-    const match = url.match(pattern)
-    if (match) {
-      return match[2]
-    }
+  // Handle full GitHub URLs: https://github.com/owner/repo or git@github.com:owner/repo
+  const fullUrlPattern = /github\.com[/:]([^/]+)\/([^/.]+?)(?:\.git)?$/
+  const fullMatch = trimmed.match(fullUrlPattern)
+  if (fullMatch && fullMatch[2] && fullMatch[2].length >= 2) {
+    return fullMatch[2]
+  }
+
+  // Handle owner/repo format (only when it looks complete - at least 2 chars in repo name)
+  const shortPattern = /^([a-zA-Z0-9_-]+)\/([a-zA-Z0-9_-]{2,})$/
+  const shortMatch = trimmed.match(shortPattern)
+  if (shortMatch && shortMatch[2]) {
+    return shortMatch[2]
   }
 
   return ''

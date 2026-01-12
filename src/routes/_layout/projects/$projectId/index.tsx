@@ -10,6 +10,7 @@ import {
   Clock,
   AlertCircle,
 } from 'lucide-react'
+import { stripHtml } from '~/lib/utils'
 
 export const Route = createFileRoute('/_layout/projects/$projectId/')({
   component: ProjectDetailPage,
@@ -63,7 +64,9 @@ function ProjectDetailPage() {
           )}
         </div>
         {project.description && (
-          <p className="mt-2 text-muted-foreground">{project.description}</p>
+          <p className="mt-2 text-muted-foreground whitespace-pre-wrap">
+            {stripHtml(project.description)}
+          </p>
         )}
         {project.tags.length > 0 && (
           <div className="mt-3 flex gap-2">

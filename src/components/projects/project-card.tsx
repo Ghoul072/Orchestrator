@@ -10,6 +10,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '~/components/ui/dropdown-menu'
+import { stripHtml } from '~/lib/utils'
 import type { Project } from '~/server/db/schema'
 
 interface ProjectCardProps {
@@ -93,7 +94,7 @@ export function ProjectCard({ project, onEdit, onArchive, onDelete }: ProjectCar
         <CardContent>
           {project.description ? (
             <p className="line-clamp-2 text-sm text-muted-foreground">
-              {project.description}
+              {stripHtml(project.description)}
             </p>
           ) : (
             <p className="text-sm italic text-muted-foreground/50">

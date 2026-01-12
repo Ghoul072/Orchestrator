@@ -51,3 +51,11 @@ export const taskRelationsQueryOptions = (taskId: string) =>
     queryFn: () => getTaskRelations({ data: { id: taskId } }),
     enabled: !!taskId,
   })
+
+// Simple query for all tasks in a project (for dependency picker)
+export const allTasksInProjectQueryOptions = (projectId: string) =>
+  queryOptions({
+    queryKey: ['tasks', projectId, 'all'],
+    queryFn: () => getTasks({ data: { projectId, includeArchived: false } }),
+    enabled: !!projectId,
+  })

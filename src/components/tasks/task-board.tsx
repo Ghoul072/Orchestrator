@@ -7,8 +7,10 @@ import {
   PointerSensor,
   useSensor,
   useSensors,
+  useDroppable,
   type DragStartEvent,
   type DragEndEvent,
+  type DragOverEvent,
 } from '@dnd-kit/core'
 import { useSortable, SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
@@ -523,10 +525,18 @@ function KanbanColumn({
   onPushToGitHub?: (taskId: string) => void
   onAddSubtask?: (parentTaskId: string) => void
 }) {
+  const { setNodeRef, isOver } = useDroppable({
+    id: `column-${status}`,
+    data: { type: 'column', status },
+  })
+
   return (
     <div
-      className="flex w-72 flex-shrink-0 flex-col rounded-lg bg-muted/30"
-      data-status={status}
+      ref={setNodeRef}
+      className={cn(
+        'flex w-72 flex-shrink-0 flex-col rounded-lg bg-muted/30 transition-colors',
+        isOver && 'ring-2 ring-primary ring-offset-2'
+      )}
     >
       {/* Column header */}
       <div className="flex items-center gap-2 border-b bg-muted/50 px-3 py-2">
@@ -622,45 +632,30 @@ function KanbanView({
     const task = allTasks.find((t) => t.id === taskId)
     if (!task) return
 
-    // Find which column the task was dropped in
-    // Check if dropped on another task
-    const overTask = allTasks.find((t) => t.id === over.id)
-    if (overTask && overTask.status !== task.status) {
-      onTaskStatusChange?.(taskId, overTask.status)
-      return
-    }
-
-    // Check if dropped on a column (by checking the over element's parent)
-    const overElement = document.querySelector(`[data-status]`)
-    if (overElement) {
-      const newStatus = overElement.getAttribute('data-status') as TaskStatus
-      if (newStatus && newStatus !== task.status) {
-        onTaskStatusChange?.(taskId, newStatus)
-      }
-    }
-  }
-
-  const handleDragOver = (event: DragEndEvent) => {
-    const { active, over } = event
-    if (!over) return
-
-    const taskId = active.id as string
-    const task = allTasks.find((t) => t.id === taskId)
-    if (!task) return
-
-    // Find the target status from the over element
+    // Determine target status
     let targetStatus: TaskStatus | null = null
 
-    // Check if over another task
-    const overTask = allTasks.find((t) => t.id === over.id)
-    if (overTask) {
-      targetStatus = overTask.status
+    // Check if dropped on a column
+    const overId = over.id as string
+    if (overId.startsWith('column-')) {
+      targetStatus = overId.replace('column-', '') as TaskStatus
+    } else {
+      // Dropped on another task - use that task's status
+      const overTask = allTasks.find((t) => t.id === overId)
+      if (overTask) {
+        targetStatus = overTask.status
+      }
     }
 
-    // If we found a different status, update the task
+    // Update status if different
     if (targetStatus && targetStatus !== task.status) {
       onTaskStatusChange?.(taskId, targetStatus)
     }
+  }
+
+  const handleDragOver = (_event: DragOverEvent) => {
+    // We handle status changes in handleDragEnd only
+    // This prevents flickering from constant status updates during drag
   }
 
   return (

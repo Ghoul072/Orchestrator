@@ -240,12 +240,21 @@ export function TiptapEditor({
         </Button>
       </div>
 
-      {/* Editor content */}
-      <EditorContent
-        editor={editor}
-        className="px-4 py-3"
+      {/* Editor content - wrapper makes entire area clickable */}
+      <div
+        className="cursor-text"
         style={{ minHeight }}
-      />
+        onClick={() => {
+          if (editor && !editor.isFocused) {
+            editor.commands.focus('end')
+          }
+        }}
+      >
+        <EditorContent
+          editor={editor}
+          className="h-full px-4 py-3 [&>.tiptap]:min-h-full [&>.tiptap]:outline-none"
+        />
+      </div>
     </div>
   )
 }

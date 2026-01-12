@@ -79,7 +79,7 @@ export function AppLayout() {
 
             {/* Chat Panel */}
             {chatOpen && (
-              <div className="w-[400px] border-l bg-background">
+              <div className="w-[480px] border-l bg-background shrink-0">
                 <ChatPanel
                   projectId={projectId}
                   className="h-full rounded-none border-0"

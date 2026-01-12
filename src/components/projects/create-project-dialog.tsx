@@ -16,6 +16,7 @@ import { Label } from '~/components/ui/label'
 import { Checkbox } from '~/components/ui/checkbox'
 import { TiptapEditor } from '~/components/editor/tiptap-editor'
 import { Plus, Sparkles } from 'lucide-react'
+import { cn } from '~/lib/utils'
 import { createProject, generateTasksFromDescription } from '~/server/functions/projects'
 import { toast } from 'sonner'
 
@@ -132,7 +133,12 @@ export function CreateProjectDialog({ trigger }: CreateProjectDialogProps) {
             </div>
             <label
               htmlFor="generate-tasks"
-              className="flex items-center gap-3 rounded-lg border p-4 bg-muted/30 cursor-pointer"
+              className={cn(
+                'flex items-center gap-3 rounded-lg border p-4 bg-muted/30 transition-opacity',
+                hasDescriptionForTasks
+                  ? 'cursor-pointer hover:bg-muted/50'
+                  : 'cursor-not-allowed opacity-60'
+              )}
             >
               <Checkbox
                 id="generate-tasks"
@@ -142,7 +148,7 @@ export function CreateProjectDialog({ trigger }: CreateProjectDialogProps) {
               />
               <div className="flex flex-col gap-1">
                 <div className="flex items-center gap-2">
-                  <Sparkles className="h-4 w-4 text-primary" />
+                  <Sparkles className={cn('h-4 w-4', hasDescriptionForTasks ? 'text-primary' : 'text-muted-foreground')} />
                   <span className="text-sm font-medium">Generate initial tasks from description</span>
                 </div>
                 <p className="text-xs text-muted-foreground">

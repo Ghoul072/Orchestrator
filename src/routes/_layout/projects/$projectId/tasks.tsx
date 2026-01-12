@@ -8,7 +8,7 @@ import { projectQueryOptions } from '~/queries/projects'
 import { repositoriesQueryOptions } from '~/queries/repositories'
 import { createTask, updateTask } from '~/server/functions/tasks'
 import { getGitHubTokenStatus, pushTaskToGitHub } from '~/server/functions/github'
-import { getActiveSessions } from '~/server/functions/agent-sessions'
+import { getActiveSessions, createSession } from '~/server/functions/agent-sessions'
 import { TaskBoard, type Task } from '~/components/tasks/task-board'
 import { TaskEditor, type TaskFormData } from '~/components/tasks/task-editor'
 import { AgentProgressPanel } from '~/components/tasks/agent-progress-panel'
@@ -73,8 +73,8 @@ function TasksPage() {
 
   // Create task mutation
   const createMutation = useMutation({
-    mutationFn: (data: TaskFormData) =>
-      createTask({
+    mutationFn: async (data: TaskFormData) => {
+      const task = await createTask({
         data: {
           projectId,
           repositoryId: data.repositoryId,
@@ -88,10 +88,35 @@ function TasksPage() {
           dueDate: data.dueDate,
           parentId: data.parentId,
         },
-      }),
-    onSuccess: () => {
+      })
+
+      // If auto-assign agent is enabled, create a session
+      if (data.autoAssignAgent && task?.id) {
+        try {
+          await createSession({ data: { taskId: task.id as string } })
+          return { task, autoAssigned: true }
+        } catch (error) {
+          console.error('Failed to create agent session:', error)
+          toast.error('Task created but failed to assign agent', {
+            description: error instanceof Error ? error.message : 'Unknown error',
+          })
+          return { task, autoAssigned: false }
+        }
+      }
+      return { task, autoAssigned: false }
+    },
+    onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: ['tasks'] })
+      queryClient.invalidateQueries({ queryKey: ['agent-sessions'] })
       setEditorOpen(false)
+
+      // If auto-assigned, show the agent panel
+      if (result.autoAssigned && result.task?.id) {
+        setActiveAgentTaskId(result.task.id as string)
+        toast.success('Task created and agent assigned', {
+          description: 'Agent will start working on the task',
+        })
+      }
     },
   })
 

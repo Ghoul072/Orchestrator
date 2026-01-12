@@ -23,7 +23,9 @@ import {
   Trash,
   X,
   CheckCircle,
+  Robot,
 } from '@phosphor-icons/react'
+import { Checkbox } from '~/components/ui/checkbox'
 import { cn } from '~/lib/utils'
 
 type TaskStatus = 'pending' | 'in_progress' | 'blocked' | 'completed' | 'cancelled'
@@ -41,6 +43,7 @@ export interface TaskFormData {
   dueDate?: string
   repositoryId?: string | null
   parentId?: string | null
+  autoAssignAgent?: boolean
 }
 
 interface TaskEditorProps {
@@ -95,6 +98,7 @@ export function TaskEditor({
     status: 'pending',
     priority: 'medium',
     acceptanceCriteria: [],
+    autoAssignAgent: true, // Default to auto-assign for new tasks
     ...initialData,
   })
 
@@ -109,6 +113,7 @@ export function TaskEditor({
         status: 'pending',
         priority: 'medium',
         acceptanceCriteria: [],
+        autoAssignAgent: !isEditing, // Auto-assign by default for new tasks only
         ...initialData,
       }
       if (nextData.repositoryId === undefined && repositories.length === 1) {
@@ -117,7 +122,7 @@ export function TaskEditor({
       setFormData(nextData)
       setNewCriterion('')
     }
-  }, [open, initialData, repositories])
+  }, [open, initialData, repositories, isEditing])
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -394,6 +399,38 @@ export function TaskEditor({
                   </div>
                 </div>
               </div>
+
+              {/* Auto-assign agent checkbox - only show for new tasks */}
+              {!isEditing && (
+                <div className="space-y-2">
+                  <label
+                    htmlFor="auto-assign-agent"
+                    className={cn(
+                      'flex items-center gap-3 rounded-lg border p-4 bg-muted/30 cursor-pointer hover:bg-muted/50 transition-colors'
+                    )}
+                  >
+                    <Checkbox
+                      id="auto-assign-agent"
+                      checked={formData.autoAssignAgent}
+                      onCheckedChange={(checked) =>
+                        setFormData((prev) => ({
+                          ...prev,
+                          autoAssignAgent: checked === true,
+                        }))
+                      }
+                    />
+                    <div className="flex flex-col gap-1">
+                      <div className="flex items-center gap-2">
+                        <Robot className="h-4 w-4 text-primary" />
+                        <span className="text-sm font-medium">Auto-assign to agent</span>
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        Claude Code will start working on this task immediately after creation
+                      </p>
+                    </div>
+                  </label>
+                </div>
+              )}
             </div>
           </ScrollArea>
 

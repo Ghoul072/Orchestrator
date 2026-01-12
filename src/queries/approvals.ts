@@ -10,7 +10,7 @@ import {
  */
 export const approvalsQueryOptions = (options?: {
   taskId?: string
-  status?: 'pending' | 'approved' | 'rejected'
+  status?: 'pending' | 'approved' | 'rejected' | 'changes_requested'
 }) =>
   queryOptions({
     queryKey: ['approvals', options],

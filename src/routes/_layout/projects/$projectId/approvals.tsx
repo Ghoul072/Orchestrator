@@ -3,8 +3,14 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { ApprovalList } from '~/components/approvals/approval-list'
 import { approvalsQueryOptions } from '~/queries/approvals'
-import { approveApproval, rejectApproval } from '~/server/functions/approvals'
+import {
+  approveApproval,
+  rejectApproval,
+  requestChanges,
+  resubmitApproval,
+} from '~/server/functions/approvals'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '~/components/ui/tabs'
+import type { DiffLineComment } from '~/components/diff/diff-line-comments'
 
 export const Route = createFileRoute('/_layout/projects/$projectId/approvals')({
   component: ApprovalsPage,
@@ -16,6 +22,11 @@ function ApprovalsPage() {
   // Fetch pending approvals
   const { data: pendingApprovals = [], isLoading: pendingLoading } = useQuery(
     approvalsQueryOptions({ status: 'pending' })
+  )
+
+  // Fetch changes requested approvals
+  const { data: changesRequestedApprovals = [], isLoading: changesLoading } = useQuery(
+    approvalsQueryOptions({ status: 'changes_requested' })
   )
 
   // Fetch all approvals (for history)
@@ -51,7 +62,52 @@ function ApprovalsPage() {
     },
   })
 
-  const isLoading = approveMutation.isPending || rejectMutation.isPending
+  // Request changes mutation
+  const requestChangesMutation = useMutation({
+    mutationFn: ({ id, comments }: { id: string; comments: DiffLineComment[] }) =>
+      requestChanges({
+        data: {
+          id,
+          changeRequests: comments.map((c) => ({
+            ...c,
+            createdAt: c.createdAt.toISOString(),
+          })),
+        },
+      }),
+    onSuccess: () => {
+      toast.success('Changes requested', {
+        description: 'The agent will be notified to address your feedback.',
+      })
+      queryClient.invalidateQueries({ queryKey: ['approvals'] })
+    },
+    onError: (error) => {
+      toast.error('Failed to request changes', {
+        description: error instanceof Error ? error.message : 'Unknown error',
+      })
+    },
+  })
+
+  // Resubmit mutation
+  const resubmitMutation = useMutation({
+    mutationFn: (id: string) => resubmitApproval({ data: { id } }),
+    onSuccess: () => {
+      toast.success('Approval resubmitted', {
+        description: 'The approval is now pending review.',
+      })
+      queryClient.invalidateQueries({ queryKey: ['approvals'] })
+    },
+    onError: (error) => {
+      toast.error('Failed to resubmit', {
+        description: error instanceof Error ? error.message : 'Unknown error',
+      })
+    },
+  })
+
+  const isLoading =
+    approveMutation.isPending ||
+    rejectMutation.isPending ||
+    requestChangesMutation.isPending ||
+    resubmitMutation.isPending
 
   // Filter approvals that are resolved (approved or rejected)
   const resolvedApprovals = allApprovals.filter(
@@ -77,6 +133,14 @@ function ApprovalsPage() {
               </span>
             )}
           </TabsTrigger>
+          <TabsTrigger value="changes">
+            Changes Requested
+            {changesRequestedApprovals.length > 0 && (
+              <span className="ml-2 rounded-full bg-orange-500 px-2 py-0.5 text-xs text-white">
+                {changesRequestedApprovals.length}
+              </span>
+            )}
+          </TabsTrigger>
           <TabsTrigger value="history">History</TabsTrigger>
         </TabsList>
 
@@ -85,8 +149,21 @@ function ApprovalsPage() {
             approvals={pendingApprovals}
             onApprove={(id) => approveMutation.mutate(id)}
             onReject={(id) => rejectMutation.mutate(id)}
+            onRequestChanges={(id, comments) =>
+              requestChangesMutation.mutate({ id, comments })
+            }
+            enableComments
             isLoading={isLoading || pendingLoading}
             emptyMessage="No pending approvals"
+          />
+        </TabsContent>
+
+        <TabsContent value="changes" className="mt-4">
+          <ApprovalList
+            approvals={changesRequestedApprovals}
+            onResubmit={(id) => resubmitMutation.mutate(id)}
+            isLoading={isLoading || changesLoading}
+            emptyMessage="No change requests awaiting action"
           />
         </TabsContent>
 

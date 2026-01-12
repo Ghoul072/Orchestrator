@@ -28,6 +28,16 @@ import {
   type DiffLineComment,
 } from '~/components/diff/diff-line-comments'
 
+// Stored change request format (createdAt is serialized as string)
+interface StoredChangeRequest {
+  id: string
+  lineNumber: number
+  lineType: 'add' | 'remove' | 'context'
+  content: string
+  isChangeRequest: boolean
+  createdAt: string
+}
+
 interface ApprovalCardProps {
   approval: {
     id: string
@@ -35,13 +45,15 @@ interface ApprovalCardProps {
     actionDescription: string
     diffContent?: string | null
     filesAffected?: string[] | null
-    status: 'pending' | 'approved' | 'rejected'
+    status: 'pending' | 'approved' | 'rejected' | 'changes_requested'
+    changeRequests?: StoredChangeRequest[] | null
     githubPrUrl?: string | null
     createdAt: Date | string
   }
   onApprove?: () => void
   onReject?: () => void
   onRequestChanges?: (comments: DiffLineComment[]) => void
+  onResubmit?: () => void
   isLoading?: boolean
   enableComments?: boolean
   className?: string
@@ -81,6 +93,11 @@ const statusConfig = {
     label: 'Rejected',
     className: 'bg-red-500/10 text-red-600',
   },
+  changes_requested: {
+    icon: ChatCircleIcon,
+    label: 'Changes Requested',
+    className: 'bg-orange-500/10 text-orange-600',
+  },
 }
 
 export function ApprovalCard({
@@ -88,6 +105,7 @@ export function ApprovalCard({
   onApprove,
   onReject,
   onRequestChanges,
+  onResubmit,
   isLoading = false,
   enableComments = false,
   className,
@@ -98,9 +116,22 @@ export function ApprovalCard({
   const ActionIcon = action.icon
   const StatusIcon = status.icon
 
-  // Comment management
+  // Comment management for adding new comments
   const { comments, addComment, removeComment, clearComments, hasChangeRequests } =
     useDiffLineComments()
+
+  // Convert stored change requests to DiffLineComment format
+  const storedCommentsAsDiff: DiffLineComment[] = approval.changeRequests
+    ? approval.changeRequests.map((c) => ({
+        ...c,
+        createdAt: new Date(c.createdAt),
+      }))
+    : []
+
+  // Use stored change requests when in changes_requested status
+  const displayedComments = approval.status === 'changes_requested' && approval.changeRequests
+    ? storedCommentsAsDiff
+    : comments
 
   // Parse diff content into file changes for proper rendering
   const fileChanges = approval.diffContent ? parseGitDiff(approval.diffContent) : []
@@ -184,17 +215,19 @@ export function ApprovalCard({
             </CollapsibleTrigger>
             <CollapsibleContent>
               <div className="mt-2 space-y-2">
-                {enableComments && approval.status === 'pending' && (
+                {/* Show summary for pending with new comments or changes_requested with stored */}
+                {((enableComments && approval.status === 'pending' && comments.length > 0) ||
+                  (approval.status === 'changes_requested' && approval.changeRequests && approval.changeRequests.length > 0)) && (
                   <CommentsSummary
-                    comments={comments}
-                    onClear={clearComments}
+                    comments={displayedComments}
+                    onClear={approval.status === 'pending' ? clearComments : undefined}
                   />
                 )}
                 <div className="max-h-[400px] overflow-auto rounded-md border">
                   <FileChangesWithComments
                     files={fileChanges}
                     defaultExpanded={false}
-                    comments={comments}
+                    comments={displayedComments}
                     onAddComment={enableComments && approval.status === 'pending' ? addComment : undefined}
                     onRemoveComment={enableComments && approval.status === 'pending' ? removeComment : undefined}
                     enableComments={enableComments && approval.status === 'pending'}
@@ -245,6 +278,35 @@ export function ApprovalCard({
               </Button>
             )}
           </div>
+        </CardFooter>
+      )}
+
+      {/* Changes requested - show note and option to resubmit */}
+      {approval.status === 'changes_requested' && (
+        <CardFooter className="flex-col gap-2 pt-2">
+          <div className="w-full rounded-md border border-orange-500/30 bg-orange-500/10 p-3 text-sm">
+            <div className="flex items-start gap-2">
+              <WarningCircleIcon className="h-5 w-5 flex-shrink-0 text-orange-600" weight="fill" />
+              <div>
+                <p className="font-medium text-orange-600">Changes Requested</p>
+                <p className="text-muted-foreground">
+                  Review the comments above and address the requested changes.
+                  The agent will be notified to revise the implementation.
+                </p>
+              </div>
+            </div>
+          </div>
+          {onResubmit && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onResubmit}
+              disabled={isLoading}
+              className="w-full"
+            >
+              Mark Changes Addressed
+            </Button>
+          )}
         </CardFooter>
       )}
     </Card>

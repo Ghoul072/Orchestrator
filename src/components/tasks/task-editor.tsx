@@ -232,7 +232,7 @@ export function TaskEditor({
                 {/* Priority */}
                 <div className="space-y-2">
                   <label className="text-sm font-medium">Priority</label>
-                  <div className="flex gap-2">
+                  <div className="flex flex-wrap gap-2">
                     {priorityOptions.map((option) => (
                       <Button
                         key={option.value}

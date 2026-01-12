@@ -72,7 +72,7 @@ export function AppLayout() {
           {/* Main content with optional chat panel */}
           <div className="flex flex-1 overflow-hidden">
             <main className="flex-1 overflow-auto p-6">
-              <div className="mx-auto max-w-6xl">
+              <div className="mx-auto max-w-screen-2xl">
                 <Outlet />
               </div>
             </main>

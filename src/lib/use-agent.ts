@@ -68,35 +68,32 @@ export function useAgent(options: UseAgentOptions = {}): UseAgentReturn {
   const reconnectTimeoutRef = useRef<number | null>(null)
 
   // Append content to current assistant message
+  // Uses simple role check instead of ID matching to handle React state batching correctly
   const appendAssistantContent = useCallback((content: string) => {
     setMessages((prev) => {
       const lastMessage = prev[prev.length - 1]
 
-      if (
-        lastMessage &&
-        lastMessage.role === 'assistant' &&
-        lastMessage.id === currentAssistantIdRef.current
-      ) {
-        // Append to existing message
+      // If last message is already an assistant message, append to it
+      if (lastMessage && lastMessage.role === 'assistant') {
         return [
           ...prev.slice(0, -1),
           { ...lastMessage, content: lastMessage.content + content },
         ]
-      } else {
-        // Create new assistant message
-        const newId = crypto.randomUUID()
-        currentAssistantIdRef.current = newId
-        return [
-          ...prev,
-          {
-            id: newId,
-            role: 'assistant' as const,
-            content,
-            toolCalls: [],
-            timestamp: Date.now(),
-          },
-        ]
       }
+
+      // Otherwise create a new assistant message
+      const newId = crypto.randomUUID()
+      currentAssistantIdRef.current = newId
+      return [
+        ...prev,
+        {
+          id: newId,
+          role: 'assistant' as const,
+          content,
+          toolCalls: [],
+          timestamp: Date.now(),
+        },
+      ]
     })
   }, [])
 
@@ -105,11 +102,7 @@ export function useAgent(options: UseAgentOptions = {}): UseAgentReturn {
     setMessages((prev) => {
       const lastMessage = prev[prev.length - 1]
 
-      if (
-        lastMessage &&
-        lastMessage.role === 'assistant' &&
-        lastMessage.id === currentAssistantIdRef.current
-      ) {
+      if (lastMessage && lastMessage.role === 'assistant') {
         const existingCall = lastMessage.toolCalls?.find(
           (tc) => tc.id === toolCall.id
         )
@@ -147,11 +140,7 @@ export function useAgent(options: UseAgentOptions = {}): UseAgentReturn {
       setMessages((prev) => {
         const lastMessage = prev[prev.length - 1]
 
-        if (
-          lastMessage &&
-          lastMessage.role === 'assistant' &&
-          lastMessage.id === currentAssistantIdRef.current
-        ) {
+        if (lastMessage && lastMessage.role === 'assistant') {
           return [
             ...prev.slice(0, -1),
             {
@@ -181,11 +170,7 @@ export function useAgent(options: UseAgentOptions = {}): UseAgentReturn {
     setMessages((prev) => {
       const lastMessage = prev[prev.length - 1]
 
-      if (
-        lastMessage &&
-        lastMessage.role === 'assistant' &&
-        lastMessage.id === currentAssistantIdRef.current
-      ) {
+      if (lastMessage && lastMessage.role === 'assistant') {
         return [
           ...prev.slice(0, -1),
           {

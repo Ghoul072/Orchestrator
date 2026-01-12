@@ -1,4 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
+import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
 import { useAgent, type Message, type ToolCall } from '~/lib/use-agent'
 import { Button } from '~/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/card'
@@ -227,7 +229,15 @@ function MessageBubble({ message }: { message: Message }) {
         </div>
 
         {/* Content */}
-        <div className="whitespace-pre-wrap text-sm">{message.content}</div>
+        {isUser ? (
+          <div className="whitespace-pre-wrap text-sm">{message.content}</div>
+        ) : (
+          <div className="prose prose-sm dark:prose-invert max-w-none text-sm [&>*:first-child]:mt-0 [&>*:last-child]:mb-0">
+            <ReactMarkdown remarkPlugins={[remarkGfm]}>
+              {message.content}
+            </ReactMarkdown>
+          </div>
+        )}
 
         {/* Tool calls */}
         {message.toolCalls && message.toolCalls.length > 0 && (

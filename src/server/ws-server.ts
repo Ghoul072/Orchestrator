@@ -1,9 +1,20 @@
 import { agentManager } from './acp/agent-manager'
+import {
+  startQueueProcessor,
+  subscribeToProgress,
+  continueAfterApproval,
+  startSession,
+  stopSession,
+} from './acp/task-agent-processor'
+import * as agentSessionsDb from './db/agent-sessions'
 import { db } from './db'
 import { projects, tasks, taskUpdates } from './db/schema'
 import { eq, and, isNull } from 'drizzle-orm'
 
 const WS_PORT = Number(process.env.WS_PORT) || 3001
+
+// Track WebSocket connections by session ID for progress broadcasts
+const sessionConnections = new Map<string, Set<{ ws: unknown; send: (data: string) => void }>>()
 
 // WebSocket connection data
 interface WebSocketData {
@@ -12,6 +23,9 @@ interface WebSocketData {
   projectId: string | null
   taskId: string | null
   isListening: boolean
+  // Task agent specific
+  taskAgentSessionId: string | null
+  isTaskAgent: boolean
 }
 
 // Client message types
@@ -25,7 +39,35 @@ interface PingMessage {
   type: 'ping'
 }
 
-type ClientMessage = ChatMessage | PingMessage
+// Task agent messages
+interface SubscribeTaskAgentMessage {
+  type: 'subscribe_task_agent'
+  sessionId: string
+}
+
+interface ApprovePlanMessage {
+  type: 'approve_plan'
+  sessionId: string
+}
+
+interface RequestPlanChangesMessage {
+  type: 'request_plan_changes'
+  sessionId: string
+  feedback: string
+}
+
+interface StopSessionMessage {
+  type: 'stop_session'
+  sessionId: string
+}
+
+type ClientMessage =
+  | ChatMessage
+  | PingMessage
+  | SubscribeTaskAgentMessage
+  | ApprovePlanMessage
+  | RequestPlanChangesMessage
+  | StopSessionMessage
 
 // Get project context for agent system prompt
 async function getProjectContext(projectId: string | null): Promise<string | null> {
@@ -165,7 +207,7 @@ const server = Bun.serve<WebSocketData>({
       )
     }
 
-    // WebSocket upgrade at /ws endpoint
+    // WebSocket upgrade at /ws endpoint (chat panel)
     if (url.pathname === '/ws') {
       const workingDirectory = url.searchParams.get('cwd') || '/tmp'
       const projectId = url.searchParams.get('projectId')
@@ -178,6 +220,29 @@ const server = Bun.serve<WebSocketData>({
           projectId,
           taskId,
           isListening: false,
+          taskAgentSessionId: null,
+          isTaskAgent: false,
+        },
+      })
+
+      return upgraded
+        ? undefined
+        : new Response('WebSocket upgrade failed', { status: 500 })
+    }
+
+    // WebSocket upgrade at /ws/task endpoint (task agent progress)
+    if (url.pathname === '/ws/task') {
+      const sessionId = url.searchParams.get('sessionId')
+
+      const upgraded = server.upgrade(request, {
+        data: {
+          agentSessionId: null,
+          workingDirectory: '/tmp',
+          projectId: null,
+          taskId: null,
+          isListening: false,
+          taskAgentSessionId: sessionId,
+          isTaskAgent: true,
         },
       })
 
@@ -192,7 +257,73 @@ const server = Bun.serve<WebSocketData>({
   websocket: {
     open(ws) {
       const data = ws.data
-      console.log(`[WS] New connection, setting up agent session...`)
+
+      // Handle task agent connections
+      if (data.isTaskAgent) {
+        console.log(`[WS] New task agent connection for session ${data.taskAgentSessionId}`)
+
+        if (data.taskAgentSessionId) {
+          // Add to session connections
+          if (!sessionConnections.has(data.taskAgentSessionId)) {
+            sessionConnections.set(data.taskAgentSessionId, new Set())
+          }
+          sessionConnections.get(data.taskAgentSessionId)!.add({
+            ws,
+            send: (msg: string) => {
+              if (ws.readyState === 1) ws.send(msg)
+            },
+          })
+
+          // Subscribe to progress events
+          const unsubscribe = subscribeToProgress(
+            data.taskAgentSessionId,
+            (_sessionId, event) => {
+              if (ws.readyState === 1) {
+                // Send progress event with eventType to distinguish from outer message type
+                ws.send(JSON.stringify({
+                  type: 'progress',
+                  eventType: event.type,
+                  status: event.status,
+                  content: event.content,
+                  toolName: event.toolName,
+                  toolId: event.toolId,
+                  plan: event.plan,
+                  success: event.success,
+                  error: event.error,
+                  cost: event.cost,
+                  duration: event.duration,
+                }))
+              }
+            }
+          )
+
+          // Store unsubscribe function for cleanup
+          ;(data as { _unsubscribe?: () => void })._unsubscribe = unsubscribe
+
+          // Fetch and send current session state
+          void (async () => {
+            try {
+              const session = await agentSessionsDb.getSessionById(data.taskAgentSessionId!)
+              if (session) {
+                ws.send(JSON.stringify({
+                  type: 'session_state',
+                  status: session.status,
+                  plan: session.plan,
+                  currentStepId: session.currentStepId,
+                  currentTurn: session.currentTurn,
+                  errorMessage: session.errorMessage,
+                }))
+              }
+            } catch (error) {
+              console.error('[WS] Error fetching session state:', error)
+            }
+          })()
+        }
+        return
+      }
+
+      // Handle chat panel connections
+      console.log(`[WS] New chat connection, setting up agent session...`)
 
       // Create agent session asynchronously
       void (async () => {
@@ -262,6 +393,114 @@ const server = Bun.serve<WebSocketData>({
         // Handle ping
         if (msg.type === 'ping') {
           ws.send(JSON.stringify({ type: 'pong' }))
+          return
+        }
+
+        // Handle task agent subscription
+        if (msg.type === 'subscribe_task_agent') {
+          const { sessionId } = msg
+          data.taskAgentSessionId = sessionId
+          data.isTaskAgent = true
+
+          // Add to session connections
+          if (!sessionConnections.has(sessionId)) {
+            sessionConnections.set(sessionId, new Set())
+          }
+          sessionConnections.get(sessionId)!.add({
+            ws,
+            send: (str: string) => {
+              if (ws.readyState === 1) ws.send(str)
+            },
+          })
+
+          // Subscribe to progress events
+          const unsubscribe = subscribeToProgress(sessionId, (_sid, event) => {
+            if (ws.readyState === 1) {
+              ws.send(JSON.stringify({
+                type: 'progress',
+                eventType: event.type,
+                status: event.status,
+                content: event.content,
+                toolName: event.toolName,
+                toolId: event.toolId,
+                plan: event.plan,
+                success: event.success,
+                error: event.error,
+                cost: event.cost,
+                duration: event.duration,
+              }))
+            }
+          })
+          ;(data as { _unsubscribe?: () => void })._unsubscribe = unsubscribe
+
+          // Send current session state
+          const session = await agentSessionsDb.getSessionById(sessionId)
+          if (session) {
+            ws.send(JSON.stringify({
+              type: 'session_state',
+              status: session.status,
+              plan: session.plan,
+              currentStepId: session.currentStepId,
+              currentTurn: session.currentTurn,
+              errorMessage: session.errorMessage,
+            }))
+          }
+          return
+        }
+
+        // Handle plan approval
+        if (msg.type === 'approve_plan') {
+          const { sessionId } = msg
+          console.log(`[WS] Plan approved for session ${sessionId}`)
+
+          // Update session status to executing
+          await agentSessionsDb.updateSessionStatus(sessionId, 'executing')
+
+          // Continue execution
+          await continueAfterApproval(sessionId)
+
+          ws.send(JSON.stringify({
+            type: 'plan_approved',
+            sessionId,
+            status: 'executing',
+          }))
+          return
+        }
+
+        // Handle request for plan changes
+        if (msg.type === 'request_plan_changes') {
+          const { sessionId, feedback } = msg
+          console.log(`[WS] Plan changes requested for session ${sessionId}`)
+
+          // Update session with feedback
+          await agentSessionsDb.requestPlanChanges(sessionId, feedback)
+
+          // Restart the planning session
+          await startSession(sessionId)
+
+          ws.send(JSON.stringify({
+            type: 'plan_revision_started',
+            sessionId,
+            status: 'planning',
+          }))
+          return
+        }
+
+        // Handle session stop
+        if (msg.type === 'stop_session') {
+          const { sessionId } = msg
+          console.log(`[WS] Stopping session ${sessionId}`)
+
+          const stopped = stopSession(sessionId)
+          if (stopped) {
+            await agentSessionsDb.updateSessionStatus(sessionId, 'failed', 'Stopped by user')
+          }
+
+          ws.send(JSON.stringify({
+            type: 'session_stopped',
+            sessionId,
+            success: stopped,
+          }))
           return
         }
 
@@ -379,9 +618,34 @@ const server = Bun.serve<WebSocketData>({
 
     close(ws) {
       const data = ws.data
-      const { agentSessionId } = data
+      const { agentSessionId, taskAgentSessionId, isTaskAgent } = data
 
-      console.log(`[WS] Connection closed${agentSessionId ? `, session ${agentSessionId}` : ''}`)
+      // Clean up task agent connections
+      if (isTaskAgent && taskAgentSessionId) {
+        console.log(`[WS] Task agent connection closed for session ${taskAgentSessionId}`)
+
+        // Unsubscribe from progress events
+        const unsubscribe = (data as { _unsubscribe?: () => void })._unsubscribe
+        if (unsubscribe) unsubscribe()
+
+        // Remove from session connections
+        const connections = sessionConnections.get(taskAgentSessionId)
+        if (connections) {
+          for (const conn of connections) {
+            if (conn.ws === ws) {
+              connections.delete(conn)
+              break
+            }
+          }
+          if (connections.size === 0) {
+            sessionConnections.delete(taskAgentSessionId)
+          }
+        }
+        return
+      }
+
+      // Clean up chat panel connections
+      console.log(`[WS] Chat connection closed${agentSessionId ? `, session ${agentSessionId}` : ''}`)
 
       if (agentSessionId) {
         agentManager.destroySession(agentSessionId)
@@ -392,5 +656,9 @@ const server = Bun.serve<WebSocketData>({
 
 console.log(`[WS] WebSocket server running on ws://localhost:${WS_PORT}`)
 console.log(`[WS] Health check: http://localhost:${WS_PORT}/health`)
+
+// Start the task agent queue processor
+startQueueProcessor(5000)
+console.log(`[WS] Task agent queue processor started`)
 
 export { server }

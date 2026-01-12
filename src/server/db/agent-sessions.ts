@@ -70,6 +70,17 @@ export async function getActiveSessions(): Promise<AgentSession[]> {
     .orderBy(desc(agentSessions.createdAt))
 }
 
+/**
+ * Get queued sessions ready to start (ordered by creation time)
+ */
+export async function getQueuedSessions(): Promise<AgentSession[]> {
+  return db
+    .select()
+    .from(agentSessions)
+    .where(eq(agentSessions.status, 'queued'))
+    .orderBy(agentSessions.createdAt)
+}
+
 // =============================================================================
 // MUTATION FUNCTIONS
 // =============================================================================
